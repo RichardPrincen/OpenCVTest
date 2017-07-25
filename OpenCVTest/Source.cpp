@@ -61,13 +61,13 @@ void detectAndDisplay(Mat frame)
 	//Eye localization end
 	//Iris localization begin
 
-	GaussianBlur(frame, frame, Size(9, 9), 5, 1);
-
-	imshow("Blurred", frame);
+	Mat blurredFrame;
+	GaussianBlur(frame, blurredFrame, Size(9, 9), 5, 1);
+	imshow("Blurred", blurredFrame);
 	waitKey(0);
 	destroyAllWindows();
 
-	Mat cannyImage;
+	/*Mat cannyImage;
 	Mat frame_bw;
 	double highVal = cv::threshold(frame, frame_bw , 0, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
 	double lowVal = highVal * 0.3;
@@ -77,15 +77,15 @@ void detectAndDisplay(Mat frame)
 	Canny(frame, cannyImage, lowVal, highVal, 3, false);
 	imshow("Canny", cannyImage);
 	waitKey(0);
-	destroyAllWindows();
+	destroyAllWindows();*/
 
-	int minRadius = cannyImage.size().height * 0.0725;
-	int maxRadius = cannyImage.size().height * 0.3;
+	int minRadius = blurredFrame.size().height * 0.0725;
+	int maxRadius = blurredFrame.size().height * 0.3;
 	cout << frame.size().height << endl;
 	cout << minRadius << endl;
 
 	vector<Vec3f> circles;
-	HoughCircles(frame, circles, CV_HOUGH_GRADIENT, 1, frame_gray.rows / 8, 255, 1, minRadius, maxRadius);
+	HoughCircles(blurredFrame, circles, CV_HOUGH_GRADIENT, 1, frame_gray.rows / 8, 255, 1, minRadius, maxRadius);
 
 	for (size_t i = 0; i < circles.size(); i++)
 	{
@@ -96,6 +96,50 @@ void detectAndDisplay(Mat frame)
 	}
 
 	imshow("Detected circles", frame);
+	waitKey(0);
+	destroyAllWindows();
+	Vec3f circ = circles[0];
+
+	Mat1b mask(frame.size(), uchar(0));
+	circle(mask, Point(circ[0], circ[1]), circ[2], Scalar(255), CV_FILLED);
+
+	Rect bbox(circ[0] - circ[2], circ[1] - circ[2], 2 * circ[2], 2 * circ[2]);
+
+	Mat3b res(frame.size(), Vec3b(0, 0, 0));
+
+	frame.copyTo(res, mask);
+
+	res = res(bbox);
+
+	imshow("Result", res);
+	waitKey(0);
+	destroyAllWindows();
+
+	//Pupil location
+	GaussianBlur(res, res, Size(9, 9), 5, 1);
+
+	Mat cannyImage;
+	Mat frame_bw;
+	double highVal = cv::threshold(res, frame_bw, 0, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
+	double lowVal = highVal * 0.3;
+
+	cout << "Lower threshold: " << lowVal << endl << "High threshold: " << highVal << endl;
+
+	Canny(res, cannyImage, lowVal, highVal, 3, false);
+	imshow("Canny", cannyImage);
+	waitKey(0);
+	destroyAllWindows();
+
+	HoughCircles(res, circles, CV_HOUGH_GRADIENT, 1, res.rows / 8, 255, 1, res.size().height*0.1, res.size().height*0.3);
+	for (size_t i = 0; i < circles.size(); i++)
+	{
+		Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
+		int radius = cvRound(circles[i][2]);
+
+		circle(res, center, radius, Scalar(0, 0, 255), 2, 8, 0);
+	}
+
+	imshow("Detected circles", res);
 	waitKey(0);
 	destroyAllWindows();
 }
