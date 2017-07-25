@@ -21,7 +21,7 @@ RNG rng(12345);
 /** @function main */
 int main(int argc, const char** argv)
 {
-	Mat frame = imread("face4.jpg");
+	Mat frame = imread("face5.jpg");
 
 	//-- 1. Load the cascades
 
@@ -61,7 +61,7 @@ void detectAndDisplay(Mat frame)
 	//Eye localization end
 	//Iris localization begin
 
-	GaussianBlur(frame, frame, Size(9, 9), 1, 1);
+	GaussianBlur(frame, frame, Size(9, 9), 5, 1);
 
 	imshow("Blurred", frame);
 	waitKey(0);
@@ -70,7 +70,7 @@ void detectAndDisplay(Mat frame)
 	Mat cannyImage;
 	Mat frame_bw;
 	double highVal = cv::threshold(frame, frame_bw , 0, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
-	double lowVal = highVal *0.3;
+	double lowVal = highVal * 0.3;
 
 	cout << "Lower threshold: " << lowVal << endl << "High threshold: " << highVal << endl;
 
@@ -79,12 +79,13 @@ void detectAndDisplay(Mat frame)
 	waitKey(0);
 	destroyAllWindows();
 
-	int minRadius = frame.size().height * 0.2;
+	int minRadius = cannyImage.size().height * 0.0725;
+	int maxRadius = cannyImage.size().height * 0.3;
 	cout << frame.size().height << endl;
 	cout << minRadius << endl;
 
 	vector<Vec3f> circles;
-	HoughCircles(frame, circles, CV_HOUGH_GRADIENT, 1, frame_gray.rows / 8, highVal, lowVal, minRadius, 0);
+	HoughCircles(frame, circles, CV_HOUGH_GRADIENT, 1, frame_gray.rows / 8, 255, 1, minRadius, maxRadius);
 
 	for (size_t i = 0; i < circles.size(); i++)
 	{
