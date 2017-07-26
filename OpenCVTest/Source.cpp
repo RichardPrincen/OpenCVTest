@@ -6,6 +6,7 @@
 #include <opencv2/opencv.hpp>
 #include <iostream>
 #include <stdio.h>
+#include <cmath>
 
 using namespace std;
 using namespace cv;
@@ -98,6 +99,10 @@ void detectAndDisplay(Mat frame)
 	imshow("Detected circles", frame);
 	waitKey(0);
 	destroyAllWindows();
+
+	//Iris localization end
+	//Iris extraction begin
+
 	Vec3f circ = circles[0];
 
 	Mat1b mask(frame.size(), uchar(0));
@@ -125,11 +130,20 @@ void detectAndDisplay(Mat frame)
 
 	cout << "Lower threshold: " << lowVal << endl << "High threshold: " << highVal << endl;
 
-	Canny(res, cannyImage, lowVal, highVal, 3, false);
+	/*Canny(res, cannyImage, lowVal, highVal, 3, false);
 	imshow("Canny", cannyImage);
 	waitKey(0);
-	destroyAllWindows();
+	destroyAllWindows();*/
 
+	for (size_t i = 8; i < 10; i++)
+	{
+		for (size_t j = 0; j < res.cols; j++)
+		{
+			int point = (int)res.at<char>(i, j);
+			cout << point << ",";
+		}	
+		cout << endl << endl;
+	}
 	HoughCircles(res, circles, CV_HOUGH_GRADIENT, 1, res.rows / 8, 255, 1, res.size().height*0.1, res.size().height*0.3);
 	for (size_t i = 0; i < circles.size(); i++)
 	{
