@@ -7,24 +7,25 @@
 #include <iostream>
 #include <stdio.h>
 #include <cmath>
+#include <list>  
 
 using namespace std;
 using namespace cv;
 
 /** Function Headers */
 void detectAndDisplay(Mat frame);
+list<int> LBP(Mat iris);
 
 /** Global variables */
 String eyes_cascade_name = "haarcascade_eye.xml";
 CascadeClassifier eyes_cascade;
+string window = "Output";
 RNG rng(12345);
 
 /** @function main */
 int main(int argc, const char** argv)
 {
 	Mat frame = imread("face5.jpg");
-
-	//-- 1. Load the cascades
 
 	if (!eyes_cascade.load(eyes_cascade_name)) 
 	{ 
@@ -55,18 +56,18 @@ void detectAndDisplay(Mat frame)
 	Rect eyeRegion(eyes[0].x, eyes[0].y, eyes[0].width, eyes[0].height);
 	frame = frame_gray(eyeRegion);
 
-	imshow("Detected eye region", frame);
+	imshow(window, frame);
 	waitKey(0);
-	destroyAllWindows();
+	//destroyAllWindows();
 
 	//Eye localization end
 	//Iris localization begin
 
 	Mat blurredFrame;
 	GaussianBlur(frame, blurredFrame, Size(9, 9), 5, 1);
-	imshow("Blurred", blurredFrame);
+	/*imshow(window, blurredFrame);
 	waitKey(0);
-	destroyAllWindows();
+	destroyAllWindows();*/
 
 	/*Mat cannyImage;
 	Mat frame_bw;
@@ -96,9 +97,9 @@ void detectAndDisplay(Mat frame)
 		circle(frame, center, radius, Scalar(0, 0, 255), 2, 8, 0);
 	}
 
-	imshow("Detected circles", frame);
+	imshow(window, frame);
 	waitKey(0);
-	destroyAllWindows();
+	//destroyAllWindows();
 
 	//Iris localization end
 	//Iris extraction begin
@@ -110,50 +111,63 @@ void detectAndDisplay(Mat frame)
 
 	Rect bbox(circ[0] - circ[2], circ[1] - circ[2], 2 * circ[2], 2 * circ[2]);
 
-	Mat3b res(frame.size(), Vec3b(0, 0, 0));
+	Mat iris(320, 240, CV_8UC3, Scalar(255, 255, 255));
 
-	frame.copyTo(res, mask);
+	frame.copyTo(iris, mask);
 
-	res = res(bbox);
+	iris = iris(bbox);
 
-	imshow("Result", res);
+	imshow(window, iris);
 	waitKey(0);
-	destroyAllWindows();
+	//destroyAllWindows();
+
+	list<int> DankMemes = LBP(iris);
 
 	//Pupil location
-	GaussianBlur(res, res, Size(9, 9), 5, 1);
+	Mat blurredIris;
+	GaussianBlur(iris, blurredIris, Size(9, 9), 3, 1);
 
 	Mat cannyImage;
 	Mat frame_bw;
-	double highVal = cv::threshold(res, frame_bw, 0, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
+	double highVal = cv::threshold(blurredIris, frame_bw, 0, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
 	double lowVal = highVal * 0.3;
 
 	cout << "Lower threshold: " << lowVal << endl << "High threshold: " << highVal << endl;
 
-	/*Canny(res, cannyImage, lowVal, highVal, 3, false);
-	imshow("Canny", cannyImage);
+	Canny(blurredIris, cannyImage, lowVal, highVal, 3, false);
+	imshow(window, cannyImage);
 	waitKey(0);
-	destroyAllWindows();*/
+	//destroyAllWindows();
 
-	for (size_t i = 8; i < 10; i++)
-	{
-		for (size_t j = 0; j < res.cols; j++)
-		{
-			int point = (int)res.at<char>(i, j);
-			cout << point << ",";
-		}	
-		cout << endl << endl;
-	}
-	HoughCircles(res, circles, CV_HOUGH_GRADIENT, 1, res.rows / 8, 255, 1, res.size().height*0.1, res.size().height*0.3);
+	int pupilMin = iris.size().height*0.3, pupilMax = iris.size().height*0.5;
+
+	HoughCircles(blurredIris, circles, CV_HOUGH_GRADIENT, 1, iris.rows / 8, 255, 1, pupilMin,pupilMax);
 	for (size_t i = 0; i < circles.size(); i++)
 	{
 		Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
 		int radius = cvRound(circles[i][2]);
 
-		circle(res, center, radius, Scalar(0, 0, 255), 2, 8, 0);
+		circle(iris, center, radius, Scalar(0, 0, 255), 2, 8, 0);
 	}
 
-	imshow("Detected circles", res);
+	imshow(window, iris);
 	waitKey(0);
 	destroyAllWindows();
+}
+
+list<int> LBP(Mat iris)
+{
+	cout << "Rows:" << iris.rows / 16 << endl << "Columns: " << iris.cols/16 << endl;
+	for (size_t i = 0; i < iris.rows; i++)
+	{
+		for (size_t j = 0; j < iris.cols; j++)
+		{
+			int point = (int)iris.at<char>(i, j);
+			cout << point << ",";
+		}
+		cout << endl << endl;
+	}
+	list<int> memes;
+	memes.push_back(1);
+	return memes;
 }
