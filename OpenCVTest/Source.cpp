@@ -17,6 +17,8 @@ using namespace cv;
 void detectIris(Mat frame);
 list<int> LBP(Mat iris);
 void segmentIris(Mat &src, Mat &dst);
+Mat CannyTransform(Mat input);
+Mat EdgeContour(Mat input);
 
 /** Global variables */
 String eyes_cascade_name = "haarcascade_eye.xml";
@@ -27,7 +29,7 @@ RNG rng(12345);
 
 int main(int argc, const char** argv)
 {
-	Mat frame = imread("face5.jpg");
+	Mat frame = imread("face10.jpg");
 
 	if (!eyes_cascade2.load(eyes_cascade_name)) 
 	{ 
@@ -57,7 +59,6 @@ void segmentIris(Mat &src, Mat &dst)
 void detectIris(Mat frame)
 {
 	//Eye localization begin
-	std::vector<Rect> faces;
 	Mat frame_gray;
 
 	cvtColor(frame, frame_gray, CV_BGR2GRAY);
@@ -69,33 +70,12 @@ void detectIris(Mat frame)
 	std::vector<Rect> eyes;
 	eyes_cascade2.detectMultiScale(frame_gray, eyes, 1.1, 2, 0 | CV_HAAR_SCALE_IMAGE, Size(minSize, minSize));
 	
-	//Rect eyeRegion(eyes[1].x*1.2, eyes[1].y*1.2, eyes[1].width*0.4, eyes[1].height*0.4);
 	Rect eyeRegion(eyes[0].x, eyes[0].y, eyes[0].width, eyes[0].height);
 	frame = frame_gray(eyeRegion);
 
 	imshow(window, frame);
 	waitKey(0);
 
-	int x = cvRound(frame.size().width / 2);
-	int y = cvRound(frame.size().height / 2);
-	Point center(x, y);
-	int radius = frame.size().height / 4;
-
-	circle(frame, center, radius, Scalar(0, 0, 255), 2, 8, 0);
-
-	Mat1b mask1(frame.size(), uchar(0));
-	circle(mask1, center, radius, Scalar(255), CV_FILLED);
-
-	Rect bbox1(x - radius, y - radius, 2 * radius, 2 * radius);
-
-	Mat newFrame(radius*2, radius*2, CV_8UC3, Scalar(255, 255, 255));
-
-	frame.copyTo(newFrame, mask1);
-
-	frame = newFrame(bbox1);
-	imshow(window, frame); 
-	waitKey(0);
-	destroyAllWindows();
 	/*segmentIris(frame, frame);
 	imshow(window, frame);
 	waitKey(0);*/
@@ -105,56 +85,36 @@ void detectIris(Mat frame)
 	//Iris localization begin
 
 	Mat blurredFrame;
-	GaussianBlur(frame, blurredFrame, Size(9, 9), 1, 1);
+	GaussianBlur(frame, blurredFrame, Size(9, 9), 5, 5);
 	imshow(window, blurredFrame);
 	waitKey(0);
 	destroyAllWindows();
 
-	/*Mat processedFrame;
-	Mat frame_bw;
-	double highVal = threshold(blurredFrame, frame_bw , 0, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
-	double lowVal = highVal * 0.3;
+	Mat processedFrame;
+	/*= EdgeContour(blurredFrame);
+	imshow(window, processedFrame);
+	waitKey(0);*/
 
-	cout << "Lower threshold: " << lowVal << endl << "High threshold: " << highVal << endl;
-
-	Canny(blurredFrame, processedFrame, lowVal, highVal, 3, false);
+	/*Mat processedFrame = CannyTransform(blurredFrame);
 	imshow("Canny", processedFrame);
 	waitKey(0);
 	destroyAllWindows();*/
 
-
-	/// Generate grad_x and grad_y
-	int scale = 1;
-	int delta = 0;
-	int ddepth = CV_16S;
-	Mat processedFrame;
-	Mat grad_x, grad_y;
-	Mat abs_grad_x, abs_grad_y;
-
-	Scharr(blurredFrame, grad_x, ddepth, 1, 0, scale, delta, BORDER_DEFAULT );
-	//Sobel(blurredFrame, grad_x, ddepth, 1, 0, 3, scale, delta, BORDER_DEFAULT);
-	convertScaleAbs(grad_x, abs_grad_x);
-
-	Scharr( blurredFrame, grad_y, ddepth, 0, 1, scale, delta, BORDER_DEFAULT );
-	//Sobel(blurredFrame, grad_y, ddepth, 0, 1, 3, scale, delta, BORDER_DEFAULT);
-	convertScaleAbs(grad_y, abs_grad_y);
-
-	addWeighted(abs_grad_x, 0.5, abs_grad_y, 0.5, 0, processedFrame);
-
-	imshow(window, processedFrame);
-	waitKey(0);
-
-	int minRadius = blurredFrame.size().height * 0.28;
-	int maxRadius = blurredFrame.size().height * 0.7;
+	int minRadius = blurredFrame.size().height * 0.1;
+	int maxRadius = blurredFrame.size().height * 0.3;
 	cout << frame.size().height << endl;
 	cout << minRadius << endl;
 
 	Mat frame_bw;
-	double highVal = threshold(processedFrame, frame_bw , 0, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
-	double lowVal = highVal * 0.4;
+	double highVal = threshold(blurredFrame, processedFrame , 0, 255, CV_THRESH_BINARY_INV | CV_THRESH_OTSU);
+	double lowVal = highVal * 0.5;
+
+	processedFrame = CannyTransform(processedFrame);
+	imshow(window, processedFrame);
+	waitKey(0);
 
 	vector<Vec3f> circles;
-	HoughCircles(processedFrame, circles, CV_HOUGH_GRADIENT, 1, frame_gray.rows / 8, highVal, lowVal, minRadius, maxRadius);
+	HoughCircles(processedFrame, circles, CV_HOUGH_GRADIENT, 1, frame_gray.rows / 8, 255, 30, 0, 0);
 
 	for (size_t i = 0; i < circles.size(); i++)
 	{
@@ -172,16 +132,12 @@ void detectIris(Mat frame)
 	//Iris extraction begin
 
 	Vec3f circ = circles[0];
-
 	Mat1b mask(frame.size(), uchar(0));
 	circle(mask, Point(circ[0], circ[1]), circ[2], Scalar(255), CV_FILLED);
-
 	Rect bbox(circ[0] - circ[2], circ[1] - circ[2], 2 * circ[2], 2 * circ[2]);
-
 	Mat iris(200, 200, CV_8UC3, Scalar(255, 255, 255));
 
 	frame.copyTo(iris, mask);
-
 	iris = iris(bbox);
 
 	imshow(window, iris);
@@ -192,11 +148,11 @@ void detectIris(Mat frame)
 
 	//Pupil location
 	Mat blurredIris;
-	GaussianBlur(iris, blurredIris, Size(9, 9), 1, 1);
+	GaussianBlur(iris, blurredIris, Size(9, 9), 5, 5);
 
 	Mat cannyImage;
 	//Mat frame_bw;
-	highVal = cv::threshold(blurredIris, frame_bw, 0, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
+	highVal = threshold(blurredIris, blurredIris, 0, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
 	lowVal = highVal * 0.5;
 
 	cout << "Lower threshold: " << lowVal << endl << "High threshold: " << highVal << endl;
@@ -208,14 +164,25 @@ void detectIris(Mat frame)
 
 	int pupilMin = iris.size().height*0.05, pupilMax = iris.size().height*0.1;
 
-	HoughCircles(blurredIris, circles, CV_HOUGH_GRADIENT, 1, iris.rows / 8, 255 ,30, pupilMin,pupilMax);
+	HoughCircles(blurredIris, circles, CV_HOUGH_GRADIENT, 1, iris.rows / 8, 255 ,30, 0,0);
 	for (size_t i = 0; i < circles.size(); i++)
 	{
 		Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
 		int radius = cvRound(circles[i][2]);
 
-		circle(iris, center, radius, Scalar(0, 0, 255), 2, 8, 0);
+		circle(iris, center, radius*1.1, Scalar(0, 0, 0), CV_FILLED);
 	}
+
+	//Vec3f circ2= circles[0];
+	//Mat1b mask2(iris.size(), uchar(0));
+	//circle(mask2, Point(circ[0], circ[1]), circ[2], Scalar(0), CV_FILLED);
+	//Rect bbox2(circ[0] - circ[2], circ[1] - circ[2], 2 * circ[2], 2 * circ[2]);
+	//Mat irisNoPupil(200, 200, CV_8UC3, Scalar(255, 255, 255));
+
+	//imshow(window, mask2);
+	//waitKey(0);
+	//iris.copyTo(irisNoPupil, mask2);
+	//irisNoPupil = irisNoPupil(bbox2);
 
 	imshow(window, iris);
 	waitKey(0);
@@ -237,4 +204,38 @@ list<int> LBP(Mat iris)
 	list<int> memes;
 	memes.push_back(1);
 	return memes;
+}
+
+Mat CannyTransform(Mat input)
+{
+	Mat processedFrame;
+	Mat frame_bw;
+	double highVal = threshold(input, frame_bw , 0, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
+	double lowVal = highVal * 0.3;
+
+	cout << "Lower threshold: " << lowVal << endl << "High threshold: " << highVal << endl;
+
+	Canny(input, processedFrame, lowVal, highVal, 3, false);
+	return processedFrame;
+}
+
+Mat EdgeContour(Mat input)
+{
+	int scale = 1;
+	int delta = 0;
+	int ddepth = CV_16S;
+	Mat processedFrame;
+	Mat grad_x, grad_y;
+	Mat abs_grad_x, abs_grad_y;
+
+	Scharr(input, grad_x, ddepth, 1, 0, scale, delta, BORDER_DEFAULT);
+	//Sobel(input, grad_x, ddepth, 1, 0, 3, scale, delta, BORDER_DEFAULT);
+	convertScaleAbs(grad_x, abs_grad_x);
+
+	Scharr(input, grad_y, ddepth, 0, 1, scale, delta, BORDER_DEFAULT);
+	//Sobel(input, grad_y, ddepth, 0, 1, 3, scale, delta, BORDER_DEFAULT);
+	convertScaleAbs(grad_y, abs_grad_y);
+
+	addWeighted(abs_grad_x, 0.5, abs_grad_y, 0.5, 0, processedFrame);
+	return processedFrame;
 }
