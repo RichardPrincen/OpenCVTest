@@ -22,7 +22,7 @@ list<int> LBP(Mat iris);
 void segmentIris(Mat &src, Mat &dst);
 Mat CannyTransform(Mat input);
 Mat EdgeContour(Mat input);
-Mat normalize(Mat &src, int pupilx, int pupily, int pupilRadius, int irisRadius);
+Mat normalize(Mat input, int pupilx, int pupily, int pupilRadius, int irisRadius);
 
 /** Global variables */
 String eyes_cascade_name = "haarcascade_eye.xml";
@@ -33,7 +33,7 @@ RNG rng(12345);
 
 int main(int argc, const char** argv)
 {
-	Mat frame = imread("face10.jpg");
+	Mat frame = imread("face11.jpg");
 
 	if (!eyes_cascade2.load(eyes_cascade_name)) 
 	{ 
@@ -184,23 +184,68 @@ void detectIris(Mat frame)
 	waitKey(0);
 	destroyAllWindows();
 
+	list<int> the_dankest_of_memes = LBP(normalized);
+
+	/*for (auto v : the_dankest_of_memes)
+		cout << v << "\n";*/
+	cout << "end" << endl;
 }
 
-list<int> LBP(Mat iris)
+list<int> LBP(Mat input)
 {
-	cout << "Rows:" << iris.rows / 16 << endl << "Columns: " << iris.cols/16 << endl;
-	for (size_t i = 0; i < iris.rows; i++)
+	list<int> outputVector;
+	for (size_t i = 1; i < input.rows-1; i++)
 	{
-		for (size_t j = 0; j < iris.cols; j++)
+		for (size_t j = 1; j < input.cols-1; j++)
 		{
-			int point = (int)iris.at<char>(i, j);
-			cout << point << ",";
+			Scalar otherIntensity = input.at<uchar>(i, j);
+			int vectorValue = 0;
+			int pixelIntensity = otherIntensity.val[0];
+
+			//Top left
+			otherIntensity = input.at<uchar>(i-1, j-1);
+			if (otherIntensity.val[0] < pixelIntensity)
+				vectorValue += 128;
+
+			//Top middle
+			otherIntensity = input.at<uchar>(i, j-1);
+			if (otherIntensity.val[0] < pixelIntensity)
+				vectorValue += 64;
+
+			//Top right
+			otherIntensity = input.at<uchar>(i+1, j-1);
+			if (otherIntensity.val[0] < pixelIntensity)
+				vectorValue += 32;
+
+			//Right
+			otherIntensity = input.at<uchar>(i+1, j);
+			if (otherIntensity.val[0] < pixelIntensity)
+				vectorValue += 16;
+
+			//Bottom right
+			otherIntensity = input.at<uchar>(i+1, j+1);
+			if (otherIntensity.val[0] < pixelIntensity)
+				vectorValue += 8;
+
+			//Botttom middle
+			otherIntensity = input.at<uchar>(i, j+1);
+			if (otherIntensity.val[0] < pixelIntensity)
+				vectorValue += 4;
+
+			//Bottom left
+			otherIntensity = input.at<uchar>(i-1, j+1);
+			if (otherIntensity.val[0] < pixelIntensity)
+				vectorValue += 2;
+
+			//Left
+			otherIntensity = input.at<uchar>(i-1, j);
+			if (otherIntensity.val[0] < pixelIntensity)
+				vectorValue += 1;
+
+			outputVector.push_back(vectorValue);
 		}
-		cout << endl << endl;
 	}
-	list<int> memes;
-	memes.push_back(1);
-	return memes;
+	return outputVector;
 }
 
 Mat CannyTransform(Mat input)
@@ -237,32 +282,34 @@ Mat EdgeContour(Mat input)
 	return processedFrame;
 }
 
-Mat normalize(Mat &src, int pupilx, int pupily, int pupilRadius, int irisRadius)
+Mat normalize(Mat input, int pupilx, int pupily, int pupilRadius, int irisRadius)
 {
 	
 	int theta = 360;
-	int nr = 80;
-	Mat normalized = Mat(nr, theta, CV_8U, Scalar(255));
+	int differenceRadius = 80;
+	cout << input.size().width << endl << input.size().height << endl;
+
+	Mat normalized = Mat(differenceRadius, theta, CV_8U, Scalar(255));
 	for (int i = 0; i < theta; i++)
 	{
 		double alpha = 2 * PI * i / theta;
-		for (int j = 0; j < nr; j++)
+		for (int j = 0; j < differenceRadius; j++)
 		{
-			double r = 1.0*j / nr;
+			double r = 1.0*j / differenceRadius;
 			int x = (int)((1 - r)*(pupilx + pupilRadius*cos(alpha)) + r*(pupilx + irisRadius*cos(alpha)));
 			int y = (int)((1 - r)*(pupily + pupilRadius*sin(alpha)) + r*(pupily + irisRadius*sin(alpha)));
-			if (y < 0)
-			{
-				//cout << y << endl;
-				y = 0;
-			}
 			if (x < 0)
-			{
-				//cout << x << endl;
 				x = 0;
-			}
-			normalized.at<uchar>(j, i) = src.at<uchar>(y, x);
+			if (y < 0)
+				y = 0;
+			if (x > input.size().width-1)
+				x = input.size().width-1;
+			if (y > input.size().height-1)
+				y = input.size().height-1;
+			normalized.at<uchar>(j, i) = input.at<uchar>(y, x);
 		}
 	}
+	Rect reducedSelection(0, 5, 360, 60);
+	normalized = normalized(reducedSelection);
 	return normalized;
 }
