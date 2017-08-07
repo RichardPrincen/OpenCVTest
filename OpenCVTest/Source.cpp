@@ -18,11 +18,12 @@ using namespace cv;
 
 /** Function Headers */
 void detectIris(Mat frame);
-list<int> LBP(Mat iris);
+vector<int> LBP(Mat iris);
 void segmentIris(Mat &src, Mat &dst);
 Mat CannyTransform(Mat input);
 Mat EdgeContour(Mat input);
 Mat normalize(Mat input, int pupilx, int pupily, int pupilRadius, int irisRadius);
+int hammingDistance(vector<int> savedCode, vector<int> inputCode);
 
 /** Global variables */
 String eyes_cascade_name = "haarcascade_eye.xml";
@@ -79,11 +80,6 @@ void detectIris(Mat frame)
 
 	imshow(window, frame);
 	waitKey(0);
-
-	/*segmentIris(frame, frame);
-	imshow(window, frame);
-	waitKey(0);*/
-	//destroyAllWindows();
 
 	//Eye localization end
 	//Iris localization begin
@@ -151,7 +147,6 @@ void detectIris(Mat frame)
 	GaussianBlur(iris, blurredIris, Size(9, 9), 5, 5);
 
 	Mat cannyImage;
-	//Mat frame_bw;
 	highVal = threshold(blurredIris, blurredIris, 0, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
 	lowVal = highVal * 0.5;
 
@@ -160,9 +155,7 @@ void detectIris(Mat frame)
 	Canny(blurredIris, cannyImage, lowVal, highVal, 3, false);
 	imshow(window, cannyImage);
 	waitKey(0);
-	//destroyAllWindows();
 
-	//int pupilMin = iris.size().height*0.05, pupilMax = iris.size().height*0.1;
 	int pupilx, pupily, pupilRadius;
 	HoughCircles(blurredIris, circles, CV_HOUGH_GRADIENT, 1, iris.rows / 8, 255 ,30, 0,0);
 	for (size_t i = 0; i < circles.size(); i++)
@@ -174,7 +167,6 @@ void detectIris(Mat frame)
 		circle(iris, center, pupilRadius*1.1, Scalar(0, 0, 0), CV_FILLED);
 	}
 
-
 	imshow(window, iris);
 	waitKey(0);
 
@@ -184,20 +176,21 @@ void detectIris(Mat frame)
 	waitKey(0);
 	destroyAllWindows();
 
-	list<int> the_dankest_of_memes = LBP(normalized);
+	vector<int> the_dankest_of_memes = LBP(normalized);
 
-	/*for (auto v : the_dankest_of_memes)
-		cout << v << "\n";*/
+	for (auto v : the_dankest_of_memes)
+		cout << v << "\n";
 	cout << "end" << endl;
 }
 
-list<int> LBP(Mat input)
+vector<int> LBP(Mat input)
 {
-	list<int> outputVector;
+	vector<int> outputVector;
 	for (size_t i = 1; i < input.rows-1; i++)
 	{
 		for (size_t j = 1; j < input.cols-1; j++)
 		{
+			//Currently centered pixel
 			Scalar otherIntensity = input.at<uchar>(i, j);
 			int vectorValue = 0;
 			int pixelIntensity = otherIntensity.val[0];
@@ -312,4 +305,22 @@ Mat normalize(Mat input, int pupilx, int pupily, int pupilRadius, int irisRadius
 	Rect reducedSelection(0, 5, 360, 60);
 	normalized = normalized(reducedSelection);
 	return normalized;
+}
+
+int hammingDistance(vector<int> savedCode, vector<int> inputCode)
+{
+	int currentDistance = 0;
+	int averageDistance = 0;
+	for (int i = 0; i < inputCode.size(); i++)
+	{
+		unsigned  val = savedCode[i] ^ inputCode[i];
+
+		while (val != 0)
+		{
+			currentDistance++;
+			val &= val - 1;
+		}
+		averageDistance += currentDistance;
+	}
+	return averageDistance / inputCode.size();
 }
