@@ -23,7 +23,7 @@ void segmentIris(Mat &src, Mat &dst);
 Mat CannyTransform(Mat input);
 Mat EdgeContour(Mat input);
 Mat normalize(Mat input, int pupilx, int pupily, int pupilRadius, int irisRadius);
-int hammingDistance(vector<int> savedCode, vector<int> inputCode);
+bool hammingDistance(vector<int> savedCode, vector<int> inputCode);
 
 /** Global variables */
 String eyes_cascade_name = "haarcascade_eye.xml";
@@ -307,7 +307,7 @@ Mat normalize(Mat input, int pupilx, int pupily, int pupilRadius, int irisRadius
 	return normalized;
 }
 
-int hammingDistance(vector<int> savedCode, vector<int> inputCode)
+bool hammingDistance(vector<int> savedCode, vector<int> inputCode)
 {
 	int currentDistance = 0;
 	int averageDistance = 0;
@@ -322,5 +322,5 @@ int hammingDistance(vector<int> savedCode, vector<int> inputCode)
 		}
 		averageDistance += currentDistance;
 	}
-	return averageDistance / inputCode.size();
+	return (averageDistance / inputCode.size() < 0.35);
 }
