@@ -7,8 +7,11 @@
 #include <iostream>
 #include <stdio.h>
 #include <cmath>
+#include <math.h>
 #include <list>  
 #include "segment.h"
+
+#define PI 3.14159265358979323846
 
 using namespace std;
 using namespace cv;
@@ -19,6 +22,7 @@ list<int> LBP(Mat iris);
 void segmentIris(Mat &src, Mat &dst);
 Mat CannyTransform(Mat input);
 Mat EdgeContour(Mat input);
+Mat normalize(Mat &src, int pupilx, int pupily, int pupilRadius, int irisRadius);
 
 /** Global variables */
 String eyes_cascade_name = "haarcascade_eye.xml";
@@ -115,18 +119,17 @@ void detectIris(Mat frame)
 
 	vector<Vec3f> circles;
 	HoughCircles(processedFrame, circles, CV_HOUGH_GRADIENT, 1, frame_gray.rows / 8, 255, 30, 0, 0);
-
+	int irisRadius;
 	for (size_t i = 0; i < circles.size(); i++)
 	{
 		Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
-		int radius = cvRound(circles[i][2]);
+		irisRadius = cvRound(circles[i][2]);
 
-		circle(frame, center, radius, Scalar(0, 0, 255), 2, 8, 0);
+		circle(frame, center, irisRadius, Scalar(0, 0, 255), 2, 8, 0);
 	}
 
 	imshow(window, frame);
 	waitKey(0);
-	//destroyAllWindows();
 
 	//Iris localization end
 	//Iris extraction begin
@@ -142,9 +145,6 @@ void detectIris(Mat frame)
 
 	imshow(window, iris);
 	waitKey(0);
-	//destroyAllWindows();
-
-	//list<int> DankMemes = LBP(iris);
 
 	//Pupil location
 	Mat blurredIris;
@@ -162,31 +162,28 @@ void detectIris(Mat frame)
 	waitKey(0);
 	//destroyAllWindows();
 
-	int pupilMin = iris.size().height*0.05, pupilMax = iris.size().height*0.1;
-
+	//int pupilMin = iris.size().height*0.05, pupilMax = iris.size().height*0.1;
+	int pupilx, pupily, pupilRadius;
 	HoughCircles(blurredIris, circles, CV_HOUGH_GRADIENT, 1, iris.rows / 8, 255 ,30, 0,0);
 	for (size_t i = 0; i < circles.size(); i++)
 	{
 		Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
-		int radius = cvRound(circles[i][2]);
+		pupilx = cvRound(circles[i][0]), pupily = cvRound(circles[i][1]);
+		pupilRadius = cvRound(circles[i][2]);
 
-		circle(iris, center, radius*1.1, Scalar(0, 0, 0), CV_FILLED);
+		circle(iris, center, pupilRadius*1.1, Scalar(0, 0, 0), CV_FILLED);
 	}
 
-	//Vec3f circ2= circles[0];
-	//Mat1b mask2(iris.size(), uchar(0));
-	//circle(mask2, Point(circ[0], circ[1]), circ[2], Scalar(0), CV_FILLED);
-	//Rect bbox2(circ[0] - circ[2], circ[1] - circ[2], 2 * circ[2], 2 * circ[2]);
-	//Mat irisNoPupil(200, 200, CV_8UC3, Scalar(255, 255, 255));
-
-	//imshow(window, mask2);
-	//waitKey(0);
-	//iris.copyTo(irisNoPupil, mask2);
-	//irisNoPupil = irisNoPupil(bbox2);
 
 	imshow(window, iris);
 	waitKey(0);
+
+	Mat normalized = normalize(iris, pupilx, pupily, pupilRadius, irisRadius);
+
+	imshow(window, normalized);
+	waitKey(0);
 	destroyAllWindows();
+
 }
 
 list<int> LBP(Mat iris)
@@ -238,4 +235,34 @@ Mat EdgeContour(Mat input)
 
 	addWeighted(abs_grad_x, 0.5, abs_grad_y, 0.5, 0, processedFrame);
 	return processedFrame;
+}
+
+Mat normalize(Mat &src, int pupilx, int pupily, int pupilRadius, int irisRadius)
+{
+	
+	int theta = 360;
+	int nr = 80;
+	Mat normalized = Mat(nr, theta, CV_8U, Scalar(255));
+	for (int i = 0; i < theta; i++)
+	{
+		double alpha = 2 * PI * i / theta;
+		for (int j = 0; j < nr; j++)
+		{
+			double r = 1.0*j / nr;
+			int x = (int)((1 - r)*(pupilx + pupilRadius*cos(alpha)) + r*(pupilx + irisRadius*cos(alpha)));
+			int y = (int)((1 - r)*(pupily + pupilRadius*sin(alpha)) + r*(pupily + irisRadius*sin(alpha)));
+			if (y < 0)
+			{
+				//cout << y << endl;
+				y = 0;
+			}
+			if (x < 0)
+			{
+				//cout << x << endl;
+				x = 0;
+			}
+			normalized.at<uchar>(j, i) = src.at<uchar>(y, x);
+		}
+	}
+	return normalized;
 }
