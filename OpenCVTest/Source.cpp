@@ -4,6 +4,7 @@
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
 #include <opencv2/opencv.hpp>
+#include "opencv2/features2d/features2d.hpp"
 #include <iostream>
 #include <stdio.h>
 #include <cmath>
@@ -17,13 +18,14 @@ using namespace std;
 using namespace cv;
 
 /** Function Headers */
-void detectIris(Mat frame);
+Mat detectIris(Mat frame);
 vector<int> LBP(Mat iris);
 void segmentIris(Mat &src, Mat &dst);
+void MSERFindCircles(Mat input);
 Mat CannyTransform(Mat input);
 Mat EdgeContour(Mat input);
 Mat normalize(Mat input, int pupilx, int pupily, int pupilRadius, int irisRadius);
-bool hammingDistance(vector<int> savedCode, vector<int> inputCode);
+double hammingDistance(vector<int> savedCode, vector<int> inputCode);
 
 /** Global variables */
 String eyes_cascade_name = "haarcascade_eye.xml";
@@ -34,7 +36,7 @@ RNG rng(12345);
 
 int main(int argc, const char** argv)
 {
-	Mat frame = imread("face11.jpg");
+	
 
 	if (!eyes_cascade2.load(eyes_cascade_name)) 
 	{ 
@@ -42,14 +44,29 @@ int main(int argc, const char** argv)
 		return -1;
 	};
 
-	detectIris(frame);
-	waitKey(0);
-	return 0;
+	Mat frame1 = imread("face10.jpg");
+	Mat normalized1 = detectIris(frame1);
+	vector<int> eye1 = LBP(normalized1);
 
+	Mat frame2 = imread("face11.jpg");
+	Mat normalized2 = detectIris(frame2);
+	vector<int> eye2 = LBP(normalized2);
+
+	cout << hammingDistance(eye1, eye2) << endl;
+	int hold;
+	cin >> hold;
+
+
+	/*for (auto v : eye1)
+		cout << v << "\n";
+	cout << "end" << endl;*/
+
+	return 0;
 }
 
 void segmentIris(Mat &src, Mat &dst)
 {
+	cout << "segmenting" << endl;
 	Segment segment;
 	segment.findPupilEdge(src, dst);
 	segment.findIrisEdge(dst, dst);
@@ -61,7 +78,7 @@ void segmentIris(Mat &src, Mat &dst)
 	iris_r = segment.iris_r;
 }
 
-void detectIris(Mat frame)
+Mat detectIris(Mat frame)
 {
 	//Eye localization begin
 	Mat frame_gray;
@@ -90,28 +107,24 @@ void detectIris(Mat frame)
 	waitKey(0);
 	destroyAllWindows();
 
+	
+
 	Mat processedFrame;
-	/*= EdgeContour(blurredFrame);
+	/*processedFrame = EdgeContour(blurredFrame);
 	imshow(window, processedFrame);
 	waitKey(0);*/
 
-	/*Mat processedFrame = CannyTransform(blurredFrame);
-	imshow("Canny", processedFrame);
-	waitKey(0);
-	destroyAllWindows();*/
 
-	int minRadius = blurredFrame.size().height * 0.1;
-	int maxRadius = blurredFrame.size().height * 0.3;
-	cout << frame.size().height << endl;
-	cout << minRadius << endl;
+	/*int minRadius = blurredFrame.size().height * 0.1;
+	int maxRadius = blurredFrame.size().height * 0.3;*/
 
-	Mat frame_bw;
-	double highVal = threshold(blurredFrame, processedFrame , 0, 255, CV_THRESH_BINARY_INV | CV_THRESH_OTSU);
+	double highVal = threshold(blurredFrame, processedFrame, 0.2, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
 	double lowVal = highVal * 0.5;
 
-	processedFrame = CannyTransform(processedFrame);
+	/*processedFrame = CannyTransform(blurredFrame);
 	imshow(window, processedFrame);
-	waitKey(0);
+	waitKey(0);*/
+
 
 	vector<Vec3f> circles;
 	HoughCircles(processedFrame, circles, CV_HOUGH_GRADIENT, 1, frame_gray.rows / 8, 255, 30, 0, 0);
@@ -157,7 +170,7 @@ void detectIris(Mat frame)
 	waitKey(0);
 
 	int pupilx, pupily, pupilRadius;
-	HoughCircles(blurredIris, circles, CV_HOUGH_GRADIENT, 1, iris.rows / 8, 255 ,30, 0,0);
+	HoughCircles(blurredIris, circles, CV_HOUGH_GRADIENT, 1, iris.rows / 8, 255 , 30, 0,0);
 	for (size_t i = 0; i < circles.size(); i++)
 	{
 		Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
@@ -176,11 +189,24 @@ void detectIris(Mat frame)
 	waitKey(0);
 	destroyAllWindows();
 
-	vector<int> the_dankest_of_memes = LBP(normalized);
+	return normalized;
+}
 
-	for (auto v : the_dankest_of_memes)
-		cout << v << "\n";
-	cout << "end" << endl;
+void MSERFindCircles(Mat input)
+{
+
+	Ptr<MSER> ms = MSER::create();
+	vector<vector<Point> > regions;
+	vector<cv::Rect> mser_bbox;
+	ms->detectRegions(input, regions, mser_bbox);
+
+	for (int i = 0; i < regions.size(); i++)
+	{
+		rectangle(input, mser_bbox[i], CV_RGB(0, 255, 0));
+	}
+
+	imshow("mser", input);
+	waitKey(0);
 }
 
 vector<int> LBP(Mat input)
@@ -245,7 +271,7 @@ Mat CannyTransform(Mat input)
 {
 	Mat processedFrame;
 	Mat frame_bw;
-	double highVal = threshold(input, frame_bw , 0, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
+	double highVal = threshold(input, processedFrame , 0, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
 	double lowVal = highVal * 0.3;
 
 	cout << "Lower threshold: " << lowVal << endl << "High threshold: " << highVal << endl;
@@ -307,12 +333,13 @@ Mat normalize(Mat input, int pupilx, int pupily, int pupilRadius, int irisRadius
 	return normalized;
 }
 
-bool hammingDistance(vector<int> savedCode, vector<int> inputCode)
+double hammingDistance(vector<int> savedCode, vector<int> inputCode)
 {
 	int currentDistance = 0;
 	int averageDistance = 0;
 	for (int i = 0; i < inputCode.size(); i++)
 	{
+		currentDistance = 0;
 		unsigned  val = savedCode[i] ^ inputCode[i];
 
 		while (val != 0)
@@ -322,5 +349,5 @@ bool hammingDistance(vector<int> savedCode, vector<int> inputCode)
 		}
 		averageDistance += currentDistance;
 	}
-	return (averageDistance / inputCode.size() < 0.35);
+	return 1.0*averageDistance / inputCode.size();
 }
