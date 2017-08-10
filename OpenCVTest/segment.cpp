@@ -123,3 +123,4 @@ void Segment::drawCircle(cv::Mat &img, int x, int y, int r)
         img.at<uchar>(cy,cx) = 255;
     }
 }
+

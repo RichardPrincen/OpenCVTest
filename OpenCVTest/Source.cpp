@@ -1,54 +1,22 @@
 // OpenCVTest.cpp : Defines the entry point for the console application.
 //
-#include "opencv2/objdetect/objdetect.hpp"
-#include "opencv2/highgui/highgui.hpp"
-#include "opencv2/imgproc/imgproc.hpp"
-#include <opencv2/opencv.hpp>
-#include "opencv2/features2d/features2d.hpp"
-#include <iostream>
-#include <stdio.h>
-#include <cmath>
-#include <math.h>
-#include <list>  
-#include "segment.h"
-
-#define PI 3.14159265358979323846
-
-using namespace std;
-using namespace cv;
-
-/** Function Headers */
-Mat detectIris(Mat frame);
-vector<int> LBP(Mat iris);
-void segmentIris(Mat &src, Mat &dst);
-void MSERFindCircles(Mat input);
-Mat CannyTransform(Mat input);
-Mat EdgeContour(Mat input);
-Mat normalize(Mat input, int pupilx, int pupily, int pupilRadius, int irisRadius);
-double hammingDistance(vector<int> savedCode, vector<int> inputCode);
-
-/** Global variables */
-String eyes_cascade_name = "haarcascade_eye.xml";
-CascadeClassifier eyes_cascade2;
-string window = "Output";
-RNG rng(12345);
-
+#include "source.h"
 
 int main(int argc, const char** argv)
 {
-	
 
-	if (!eyes_cascade2.load(eyes_cascade_name)) 
-	{ 
-		printf("Failed to load cascade\n"); 
+
+	if (!eyes_cascade2.load(eyes_cascade_name))
+	{
+		printf("Failed to load cascade\n");
 		return -1;
 	};
 
-	Mat frame1 = imread("face10.jpg");
+	Mat frame1 = imread("face1.jpg");
 	Mat normalized1 = detectIris(frame1);
 	vector<int> eye1 = LBP(normalized1);
 
-	Mat frame2 = imread("face11.jpg");
+	Mat frame2 = imread("face3.jpg");
 	Mat normalized2 = detectIris(frame2);
 	vector<int> eye2 = LBP(normalized2);
 
@@ -58,7 +26,7 @@ int main(int argc, const char** argv)
 
 
 	/*for (auto v : eye1)
-		cout << v << "\n";
+	cout << v << "\n";
 	cout << "end" << endl;*/
 
 	return 0;
@@ -91,7 +59,7 @@ Mat detectIris(Mat frame)
 
 	std::vector<Rect> eyes;
 	eyes_cascade2.detectMultiScale(frame_gray, eyes, 1.1, 2, 0 | CV_HAAR_SCALE_IMAGE, Size(minSize, minSize));
-	
+
 	Rect eyeRegion(eyes[0].x, eyes[0].y, eyes[0].width, eyes[0].height);
 	frame = frame_gray(eyeRegion);
 
@@ -107,7 +75,6 @@ Mat detectIris(Mat frame)
 	waitKey(0);
 	destroyAllWindows();
 
-	
 
 	Mat processedFrame;
 	/*processedFrame = EdgeContour(blurredFrame);
@@ -127,7 +94,7 @@ Mat detectIris(Mat frame)
 
 
 	vector<Vec3f> circles;
-	HoughCircles(processedFrame, circles, CV_HOUGH_GRADIENT, 1, frame_gray.rows / 8, 255, 30, 0, 0);
+	HoughCircles(processedFrame, circles, CV_HOUGH_GRADIENT, 20, frame_gray.rows / 8, 255, 30, 0, 0);
 	int irisRadius;
 	for (size_t i = 0; i < circles.size(); i++)
 	{
@@ -170,7 +137,7 @@ Mat detectIris(Mat frame)
 	waitKey(0);
 
 	int pupilx, pupily, pupilRadius;
-	HoughCircles(blurredIris, circles, CV_HOUGH_GRADIENT, 1, iris.rows / 8, 255 , 30, 0,0);
+	HoughCircles(blurredIris, circles, CV_HOUGH_GRADIENT, 1, iris.rows / 8, 255, 30, 0, 0);
 	for (size_t i = 0; i < circles.size(); i++)
 	{
 		Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
@@ -212,9 +179,9 @@ void MSERFindCircles(Mat input)
 vector<int> LBP(Mat input)
 {
 	vector<int> outputVector;
-	for (size_t i = 1; i < input.rows-1; i++)
+	for (size_t i = 1; i < input.rows - 1; i++)
 	{
-		for (size_t j = 1; j < input.cols-1; j++)
+		for (size_t j = 1; j < input.cols - 1; j++)
 		{
 			//Currently centered pixel
 			Scalar otherIntensity = input.at<uchar>(i, j);
@@ -222,42 +189,42 @@ vector<int> LBP(Mat input)
 			int pixelIntensity = otherIntensity.val[0];
 
 			//Top left
-			otherIntensity = input.at<uchar>(i-1, j-1);
+			otherIntensity = input.at<uchar>(i - 1, j - 1);
 			if (otherIntensity.val[0] < pixelIntensity)
 				vectorValue += 128;
 
 			//Top middle
-			otherIntensity = input.at<uchar>(i, j-1);
+			otherIntensity = input.at<uchar>(i, j - 1);
 			if (otherIntensity.val[0] < pixelIntensity)
 				vectorValue += 64;
 
 			//Top right
-			otherIntensity = input.at<uchar>(i+1, j-1);
+			otherIntensity = input.at<uchar>(i + 1, j - 1);
 			if (otherIntensity.val[0] < pixelIntensity)
 				vectorValue += 32;
 
 			//Right
-			otherIntensity = input.at<uchar>(i+1, j);
+			otherIntensity = input.at<uchar>(i + 1, j);
 			if (otherIntensity.val[0] < pixelIntensity)
 				vectorValue += 16;
 
 			//Bottom right
-			otherIntensity = input.at<uchar>(i+1, j+1);
+			otherIntensity = input.at<uchar>(i + 1, j + 1);
 			if (otherIntensity.val[0] < pixelIntensity)
 				vectorValue += 8;
 
 			//Botttom middle
-			otherIntensity = input.at<uchar>(i, j+1);
+			otherIntensity = input.at<uchar>(i, j + 1);
 			if (otherIntensity.val[0] < pixelIntensity)
 				vectorValue += 4;
 
 			//Bottom left
-			otherIntensity = input.at<uchar>(i-1, j+1);
+			otherIntensity = input.at<uchar>(i - 1, j + 1);
 			if (otherIntensity.val[0] < pixelIntensity)
 				vectorValue += 2;
 
 			//Left
-			otherIntensity = input.at<uchar>(i-1, j);
+			otherIntensity = input.at<uchar>(i - 1, j);
 			if (otherIntensity.val[0] < pixelIntensity)
 				vectorValue += 1;
 
@@ -271,7 +238,7 @@ Mat CannyTransform(Mat input)
 {
 	Mat processedFrame;
 	Mat frame_bw;
-	double highVal = threshold(input, processedFrame , 0, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
+	double highVal = threshold(input, processedFrame, 0, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
 	double lowVal = highVal * 0.3;
 
 	cout << "Lower threshold: " << lowVal << endl << "High threshold: " << highVal << endl;
@@ -303,7 +270,7 @@ Mat EdgeContour(Mat input)
 
 Mat normalize(Mat input, int pupilx, int pupily, int pupilRadius, int irisRadius)
 {
-	
+
 	int theta = 360;
 	int differenceRadius = 80;
 	cout << input.size().width << endl << input.size().height << endl;
@@ -321,10 +288,10 @@ Mat normalize(Mat input, int pupilx, int pupily, int pupilRadius, int irisRadius
 				x = 0;
 			if (y < 0)
 				y = 0;
-			if (x > input.size().width-1)
-				x = input.size().width-1;
-			if (y > input.size().height-1)
-				y = input.size().height-1;
+			if (x > input.size().width - 1)
+				x = input.size().width - 1;
+			if (y > input.size().height - 1)
+				y = input.size().height - 1;
 			normalized.at<uchar>(j, i) = input.at<uchar>(y, x);
 		}
 	}
