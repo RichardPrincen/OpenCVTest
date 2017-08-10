@@ -14,7 +14,7 @@ int main(int argc, const char** argv)
 	Mat normalized1 = detectIris(frame1);
 	vector<int> eye1 = LBP(normalized1);
 
-	Mat frame2 = imread("face5.jpg");
+	Mat frame2 = imread("face4.jpg");
 	Mat normalized2 = detectIris(frame2);
 	vector<int> eye2 = LBP(normalized2);
 
@@ -90,18 +90,18 @@ Mat blurImage(Mat input)
 	return blurredFrame;
 }
 
-Mat CannyTransform(Mat input)
+Mat cannyTransform(Mat input)
 {
 	Mat processed;
-	double highVal = threshold(input, processed , 0, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
-	double lowVal = highVal * 0.5;
-	showCurrentImage(processed);
+	//double highVal = threshold(input, processed , 0, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
+	//double lowVal = highVal * 0.5;
+	//showCurrentImage(processed);
 
-	Canny(processed, processed, lowVal, highVal, 3, false);
+	Canny(input, processed, 100, 120, 3, false);
 	return processed;
 }
 
-Mat EdgeContour(Mat input)
+Mat edgeContour(Mat input)
 {
 	int scale = 1;
 	int delta = 0;
@@ -128,10 +128,10 @@ Mat findAndExtractIris(Mat &input, Mat &unprocessed, Mat &original)
 	/*processed = EdgeContour(input);*/
 
 	GaussianBlur(input, processed, Size(9, 9), 5, 5);
-	double highVal = threshold(processed, processed, 0.8, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
+	double highVal = threshold(processed, processed, 160, 255, CV_THRESH_BINARY);
 	double lowVal = highVal * 0.5;
 
-	processed = CannyTransform(processed);
+	processed = cannyTransform(processed);
 	showCurrentImage(processed);
 
 	vector<Vec3f> circles;
@@ -163,7 +163,7 @@ Mat findPupil(Mat input)
 	GaussianBlur(input, cannyImage, Size(9, 9), 5, 5);
 
 	Mat processed;
-	double highVal = threshold(input, processed, 0.5, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
+	double highVal = threshold(input, processed, 80, 255, CV_THRESH_BINARY);
 	double lowVal = highVal * 0.5;
 	showCurrentImage(processed);
 
@@ -173,7 +173,7 @@ Mat findPupil(Mat input)
 	showCurrentImage(cannyImage);
 
 	vector<Vec3f> circles;
-	HoughCircles(cannyImage, circles, CV_HOUGH_GRADIENT, 20, input.rows / 8, 255, 30, 0, 0);
+	HoughCircles(cannyImage, circles, CV_HOUGH_GRADIENT, 20, input.rows, 255, 30, 0, 0);
 	for (size_t i = 0; i < circles.size(); i++)
 	{
 		Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
@@ -192,7 +192,6 @@ Mat normalize(Mat input, int pupilx, int pupily, int pupilRadius, int irisRadius
 	
 	int theta = 360;
 	int differenceRadius = 80;
-	cout << input.size().width << endl << input.size().height << endl;
 
 	Mat normalized = Mat(differenceRadius, theta, CV_8U, Scalar(255));
 	for (int i = 0; i < theta; i++)
