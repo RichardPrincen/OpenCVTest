@@ -22,7 +22,7 @@ Mat findEye(Mat input);
 Mat blurImage(Mat input);
 Mat CannyTransform(Mat input);
 Mat EdgeContour(Mat input);
-Mat findAndExtractIris(Mat &input, Mat &unprocessed);
+Mat findAndExtractIris(Mat &input, Mat &unprocessed, Mat &original);
 Mat findPupil(Mat input);
 Mat normalize(Mat input, int pupilx, int pupily, int pupilRadius, int irisRadius);
 vector<int> LBP(Mat iris);

@@ -1,14 +1,12 @@
 // OpenCVTest.cpp : Defines the entry point for the console application.
 //
-#include "source.h"
+#include "Source.h"
 
 int main(int argc, const char** argv)
 {
-
-
-	if (!eyes_cascade2.load(eyes_cascade_name))
-	{
-		printf("Failed to load cascade\n");
+	if (!eyes_cascade2.load(eyes_cascade_name)) 
+	{ 
+		printf("Failed to load cascade\n"); 
 		return -1;
 	};
 
@@ -16,18 +14,13 @@ int main(int argc, const char** argv)
 	Mat normalized1 = detectIris(frame1);
 	vector<int> eye1 = LBP(normalized1);
 
-	Mat frame2 = imread("face3.jpg");
+	Mat frame2 = imread("face5.jpg");
 	Mat normalized2 = detectIris(frame2);
 	vector<int> eye2 = LBP(normalized2);
 
 	cout << hammingDistance(eye1, eye2) << endl;
 	int hold;
 	cin >> hold;
-
-
-	/*for (auto v : eye1)
-	cout << v << "\n";
-	cout << "end" << endl;*/
 
 	return 0;
 }
@@ -46,134 +39,184 @@ void segmentIris(Mat &src, Mat &dst)
 	iris_r = segment.iris_r;
 }
 
-Mat detectIris(Mat frame)
+Mat detectIris(Mat input)
 {
-	//Eye localization begin
-	Mat frame_gray;
+	Mat currentImage = input;
 
-	cvtColor(frame, frame_gray, CV_BGR2GRAY);
-	//equalizeHist(frame_gray, frame_gray);
+	//Eye localization
+	currentImage = findEye(currentImage);
+	Mat unprocessed = currentImage;
+	showCurrentImage(currentImage);
 
-	int height = frame.size().height;
-	int minSize = height * 0.15;
+	//Find and extract iris
+	currentImage = findAndExtractIris(currentImage, unprocessed, input);
+	showCurrentImage(currentImage);
 
-	std::vector<Rect> eyes;
-	eyes_cascade2.detectMultiScale(frame_gray, eyes, 1.1, 2, 0 | CV_HAAR_SCALE_IMAGE, Size(minSize, minSize));
+	//Find pupil
+	currentImage = findPupil(currentImage);
 
-	Rect eyeRegion(eyes[0].x, eyes[0].y, eyes[0].width, eyes[0].height);
-	frame = frame_gray(eyeRegion);
+	//Normalize
+	currentImage = normalize(currentImage, pupilx, pupily, pupilRadius, irisRadius);
 
-	imshow(window, frame);
-	waitKey(0);
-
-	//Eye localization end
-	//Iris localization begin
-
-	Mat blurredFrame;
-	GaussianBlur(frame, blurredFrame, Size(9, 9), 5, 5);
-	imshow(window, blurredFrame);
-	waitKey(0);
+	showCurrentImage(currentImage);
 	destroyAllWindows();
+	return currentImage;
+}
 
+Mat findEye(Mat input)
+{
+	Mat gray;
 
-	Mat processedFrame;
-	/*processedFrame = EdgeContour(blurredFrame);
-	imshow(window, processedFrame);
-	waitKey(0);*/
+	cvtColor(input, gray, CV_BGR2GRAY);
+	//equalizeHist(input_gray, input_gray);
 
+	int minSize = gray.size().height * 0.15;
 
-	/*int minRadius = blurredFrame.size().height * 0.1;
-	int maxRadius = blurredFrame.size().height * 0.3;*/
+	vector<Rect> eyes;
+	eyes_cascade2.detectMultiScale(gray, eyes, 1.1, 2, 0 | CV_HAAR_SCALE_IMAGE, Size(minSize, minSize));
 
-	double highVal = threshold(blurredFrame, processedFrame, 0.2, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
+	Rect eyeRegion;
+	if (eyes[0].x > eyes[1].x)
+		eyeRegion = Rect(eyes[0].x, eyes[0].y, eyes[0].width, eyes[0].height);
+	else
+		eyeRegion = Rect(eyes[1].x, eyes[1].y, eyes[1].width, eyes[1].height);
+	return gray(eyeRegion);
+}
+
+Mat blurImage(Mat input)
+{
+	Mat blurredFrame;
+	GaussianBlur(input, blurredFrame, Size(9, 9), 5, 5);
+	return blurredFrame;
+}
+
+Mat CannyTransform(Mat input)
+{
+	Mat processed;
+	double highVal = threshold(input, processed , 0, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
+	double lowVal = highVal * 0.5;
+	showCurrentImage(processed);
+
+	Canny(processed, processed, lowVal, highVal, 3, false);
+	return processed;
+}
+
+Mat EdgeContour(Mat input)
+{
+	int scale = 1;
+	int delta = 0;
+	int ddepth = CV_16S;
+	Mat processed;
+	Mat grad_x, grad_y;
+	Mat abs_grad_x, abs_grad_y;
+
+	Scharr(input, grad_x, ddepth, 1, 0, scale, delta, BORDER_DEFAULT);
+	//Sobel(input, grad_x, ddepth, 1, 0, 3, scale, delta, BORDER_DEFAULT);
+	convertScaleAbs(grad_x, abs_grad_x);
+
+	Scharr(input, grad_y, ddepth, 0, 1, scale, delta, BORDER_DEFAULT);
+	//Sobel(input, grad_y, ddepth, 0, 1, 3, scale, delta, BORDER_DEFAULT);
+	convertScaleAbs(grad_y, abs_grad_y);
+
+	addWeighted(abs_grad_x, 0.5, abs_grad_y, 0.5, 0, processed);
+	return processed;
+}
+
+Mat findAndExtractIris(Mat &input, Mat &unprocessed, Mat &original)
+{
+	Mat processed;
+	/*processed = EdgeContour(input);*/
+
+	GaussianBlur(input, processed, Size(9, 9), 5, 5);
+	double highVal = threshold(processed, processed, 0.8, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
 	double lowVal = highVal * 0.5;
 
-	/*processedFrame = CannyTransform(blurredFrame);
-	imshow(window, processedFrame);
-	waitKey(0);*/
-
+	processed = CannyTransform(processed);
+	showCurrentImage(processed);
 
 	vector<Vec3f> circles;
-	HoughCircles(processedFrame, circles, CV_HOUGH_GRADIENT, 20, frame_gray.rows / 8, 255, 30, 0, 0);
-	int irisRadius;
-	for (size_t i = 0; i < circles.size(); i++)
+	HoughCircles(processed, circles, CV_HOUGH_GRADIENT, 1, original.rows / 8, 255, 30, 0, 0);
+	for (size_t i = 0; i < 1; i++)//circles.size()
 	{
 		Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
 		irisRadius = cvRound(circles[i][2]);
 
-		circle(frame, center, irisRadius, Scalar(0, 0, 255), 2, 8, 0);
+		circle(unprocessed, center, irisRadius, Scalar(0, 0, 255), 2, 8, 0);
 	}
 
-	imshow(window, frame);
-	waitKey(0);
-
-	//Iris localization end
-	//Iris extraction begin
+	showCurrentImage(unprocessed);
 
 	Vec3f circ = circles[0];
-	Mat1b mask(frame.size(), uchar(0));
+	Mat1b mask(unprocessed.size(), uchar(0));
 	circle(mask, Point(circ[0], circ[1]), circ[2], Scalar(255), CV_FILLED);
 	Rect bbox(circ[0] - circ[2], circ[1] - circ[2], 2 * circ[2], 2 * circ[2]);
 	Mat iris(200, 200, CV_8UC3, Scalar(255, 255, 255));
 
-	frame.copyTo(iris, mask);
+	unprocessed.copyTo(iris, mask);
 	iris = iris(bbox);
+	return iris;
+}
 
-	imshow(window, iris);
-	waitKey(0);
-
-	//Pupil location
-	Mat blurredIris;
-	GaussianBlur(iris, blurredIris, Size(9, 9), 5, 5);
-
+Mat findPupil(Mat input)
+{
 	Mat cannyImage;
-	highVal = threshold(blurredIris, blurredIris, 0, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
-	lowVal = highVal * 0.5;
+	GaussianBlur(input, cannyImage, Size(9, 9), 5, 5);
 
-	cout << "Lower threshold: " << lowVal << endl << "High threshold: " << highVal << endl;
+	Mat processed;
+	double highVal = threshold(input, processed, 0.5, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
+	double lowVal = highVal * 0.5;
+	showCurrentImage(processed);
 
-	Canny(blurredIris, cannyImage, lowVal, highVal, 3, false);
-	imshow(window, cannyImage);
-	waitKey(0);
+	Canny(processed, cannyImage, lowVal, highVal, 3, false);
 
-	int pupilx, pupily, pupilRadius;
-	HoughCircles(blurredIris, circles, CV_HOUGH_GRADIENT, 1, iris.rows / 8, 255, 30, 0, 0);
+	//cannyImage = CannyTransform(cannyImage);
+	showCurrentImage(cannyImage);
+
+	vector<Vec3f> circles;
+	HoughCircles(cannyImage, circles, CV_HOUGH_GRADIENT, 20, input.rows / 8, 255, 30, 0, 0);
 	for (size_t i = 0; i < circles.size(); i++)
 	{
 		Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
 		pupilx = cvRound(circles[i][0]), pupily = cvRound(circles[i][1]);
-		pupilRadius = cvRound(circles[i][2]);
+		pupilRadius = cvRound(circles[i][2] * 1.1);
 
-		circle(iris, center, pupilRadius*1.1, Scalar(0, 0, 0), CV_FILLED);
+		circle(input, center, pupilRadius, Scalar(0, 0, 0), CV_FILLED);
 	}
 
-	imshow(window, iris);
-	waitKey(0);
-
-	Mat normalized = normalize(iris, pupilx, pupily, pupilRadius, irisRadius);
-
-	imshow(window, normalized);
-	waitKey(0);
-	destroyAllWindows();
-
-	return normalized;
+	showCurrentImage(input);
+	return input;
 }
 
-void MSERFindCircles(Mat input)
+Mat normalize(Mat input, int pupilx, int pupily, int pupilRadius, int irisRadius)
 {
+	
+	int theta = 360;
+	int differenceRadius = 80;
+	cout << input.size().width << endl << input.size().height << endl;
 
-	Ptr<MSER> ms = MSER::create();
-	vector<vector<Point> > regions;
-	vector<cv::Rect> mser_bbox;
-	ms->detectRegions(input, regions, mser_bbox);
-
-	for (int i = 0; i < regions.size(); i++)
+	Mat normalized = Mat(differenceRadius, theta, CV_8U, Scalar(255));
+	for (int i = 0; i < theta; i++)
 	{
-		rectangle(input, mser_bbox[i], CV_RGB(0, 255, 0));
+		double alpha = 2 * PI * i / theta;
+		for (int j = 0; j < differenceRadius; j++)
+		{
+			double r = 1.0*j / differenceRadius;
+			int x = (int)((1 - r)*(pupilx + pupilRadius*cos(alpha)) + r*(pupilx + irisRadius*cos(alpha)));
+			int y = (int)((1 - r)*(pupily + pupilRadius*sin(alpha)) + r*(pupily + irisRadius*sin(alpha)));
+			if (x < 0)
+				x = 0;
+			if (y < 0)
+				y = 0;
+			if (x > input.size().width-1)
+				x = input.size().width-1;
+			if (y > input.size().height-1)
+				y = input.size().height-1;
+			normalized.at<uchar>(j, i) = input.at<uchar>(y, x);
+		}
 	}
-
-	imshow("mser", input);
-	waitKey(0);
+	Rect reducedSelection(0, 5, 360, 60);
+	normalized = normalized(reducedSelection);
+	return normalized;
 }
 
 vector<int> LBP(Mat input)
@@ -234,72 +277,6 @@ vector<int> LBP(Mat input)
 	return outputVector;
 }
 
-Mat CannyTransform(Mat input)
-{
-	Mat processedFrame;
-	Mat frame_bw;
-	double highVal = threshold(input, processedFrame, 0, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
-	double lowVal = highVal * 0.3;
-
-	cout << "Lower threshold: " << lowVal << endl << "High threshold: " << highVal << endl;
-
-	Canny(input, processedFrame, lowVal, highVal, 3, false);
-	return processedFrame;
-}
-
-Mat EdgeContour(Mat input)
-{
-	int scale = 1;
-	int delta = 0;
-	int ddepth = CV_16S;
-	Mat processedFrame;
-	Mat grad_x, grad_y;
-	Mat abs_grad_x, abs_grad_y;
-
-	Scharr(input, grad_x, ddepth, 1, 0, scale, delta, BORDER_DEFAULT);
-	//Sobel(input, grad_x, ddepth, 1, 0, 3, scale, delta, BORDER_DEFAULT);
-	convertScaleAbs(grad_x, abs_grad_x);
-
-	Scharr(input, grad_y, ddepth, 0, 1, scale, delta, BORDER_DEFAULT);
-	//Sobel(input, grad_y, ddepth, 0, 1, 3, scale, delta, BORDER_DEFAULT);
-	convertScaleAbs(grad_y, abs_grad_y);
-
-	addWeighted(abs_grad_x, 0.5, abs_grad_y, 0.5, 0, processedFrame);
-	return processedFrame;
-}
-
-Mat normalize(Mat input, int pupilx, int pupily, int pupilRadius, int irisRadius)
-{
-
-	int theta = 360;
-	int differenceRadius = 80;
-	cout << input.size().width << endl << input.size().height << endl;
-
-	Mat normalized = Mat(differenceRadius, theta, CV_8U, Scalar(255));
-	for (int i = 0; i < theta; i++)
-	{
-		double alpha = 2 * PI * i / theta;
-		for (int j = 0; j < differenceRadius; j++)
-		{
-			double r = 1.0*j / differenceRadius;
-			int x = (int)((1 - r)*(pupilx + pupilRadius*cos(alpha)) + r*(pupilx + irisRadius*cos(alpha)));
-			int y = (int)((1 - r)*(pupily + pupilRadius*sin(alpha)) + r*(pupily + irisRadius*sin(alpha)));
-			if (x < 0)
-				x = 0;
-			if (y < 0)
-				y = 0;
-			if (x > input.size().width - 1)
-				x = input.size().width - 1;
-			if (y > input.size().height - 1)
-				y = input.size().height - 1;
-			normalized.at<uchar>(j, i) = input.at<uchar>(y, x);
-		}
-	}
-	Rect reducedSelection(0, 5, 360, 60);
-	normalized = normalized(reducedSelection);
-	return normalized;
-}
-
 double hammingDistance(vector<int> savedCode, vector<int> inputCode)
 {
 	int currentDistance = 0;
@@ -317,4 +294,10 @@ double hammingDistance(vector<int> savedCode, vector<int> inputCode)
 		averageDistance += currentDistance;
 	}
 	return 1.0*averageDistance / inputCode.size();
+}
+
+void showCurrentImage(Mat input)
+{
+	imshow(window, input);
+	waitKey(0);
 }
