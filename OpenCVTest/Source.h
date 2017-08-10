@@ -33,5 +33,4 @@ void showCurrentImage(Mat input);
 String eyes_cascade_name = "haarcascade_eye.xml";
 CascadeClassifier eyes_cascade2;
 string window = "Output";
-RNG rng(12345);
 int pupilx, pupily, pupilRadius, irisRadius;

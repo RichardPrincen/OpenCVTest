@@ -136,7 +136,7 @@ Mat findAndExtractIris(Mat &input, Mat &unprocessed, Mat &original)
 
 	vector<Vec3f> circles;
 	HoughCircles(processed, circles, CV_HOUGH_GRADIENT, 1, original.rows / 8, 255, 30, 0, 0);
-	for (size_t i = 0; i < 1; i++)//circles.size()
+	for (size_t i = 0; i < circles.size(); i++)//circles.size()
 	{
 		Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
 		irisRadius = cvRound(circles[i][2]);
