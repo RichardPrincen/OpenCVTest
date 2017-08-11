@@ -10,7 +10,7 @@ int main(int argc, const char** argv)
 		return -1;
 	};
 
-	Mat frame1 = imread("face3.jpg");
+	Mat frame1 = imread("face1.jpg");
 	Mat normalized1 = detectIris(frame1);
 	vector<int> eye1 = LBP(normalized1);
 
@@ -53,7 +53,7 @@ Mat detectIris(Mat input)
 	showCurrentImage(currentImage);
 
 	//Find pupil
-	currentImage = findPupil(currentImage);
+	//currentImage = findPupil(currentImage);
 
 	//Normalize
 	currentImage = normalize(currentImage, pupilx, pupily, pupilRadius, irisRadius);
@@ -130,12 +130,18 @@ Mat findAndExtractIris(Mat &input, Mat &unprocessed, Mat &original)
 	processed = cannyTransform(processed);
 	showCurrentImage(processed);
 
+
 	vector<Vec3f> circles;
 	HoughCircles(processed, circles, CV_HOUGH_GRADIENT, 2, original.rows / 8, 255, 30, 0, 0);
 	for (size_t i = 0; i < 1; i++)//circles.size()
 	{
+		
+
 		Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
-		irisRadius = cvRound(circles[i][2])*5;
+		
+		pupilRadius = cvRound(circles[i][2]);
+		irisRadius = pupilRadius*4;
+		circle(unprocessed, center, pupilRadius, Scalar(0, 0, 0), CV_FILLED);
 		circle(unprocessed, center, irisRadius, Scalar(0, 0, 255), 2, 8, 0);
 	}
 
@@ -143,22 +149,23 @@ Mat findAndExtractIris(Mat &input, Mat &unprocessed, Mat &original)
 
 	Vec3f circ = circles[0];
 	Mat1b mask(unprocessed.size(), uchar(0));
-	circle(mask, Point(circ[0], circ[1]), circ[2], Scalar(255), CV_FILLED);
-	Rect bbox(circ[0] - circ[2], circ[1] - circ[2], 2 * circ[2], 2 * circ[2]);
+	circle(mask, Point(circ[0], circ[1]), irisRadius, Scalar(255), CV_FILLED);
+	Rect bbox(circ[0] - irisRadius, circ[1] - irisRadius, 2 * irisRadius, 2 * irisRadius);
 	Mat iris(200, 200, CV_8UC3, Scalar(255, 255, 255));
 
 	unprocessed.copyTo(iris, mask);
 	iris = iris(bbox);
+	pupilx = iris.size().width/2, pupily = iris.size().height/2;
 	return iris;
 }
 
 Mat findPupil(Mat input)
 {
 	Mat cannyImage;
-	GaussianBlur(input, cannyImage, Size(9, 9), 5, 5);
+	GaussianBlur(input, cannyImage, Size(9, 9), 3, 3);
 
 	Mat processed;
-	double highVal = threshold(input, processed, 80, 255, CV_THRESH_BINARY);
+	double highVal = threshold(input, processed, 70, 255, CV_THRESH_BINARY);
 	double lowVal = highVal * 0.5;
 	showCurrentImage(processed);
 
