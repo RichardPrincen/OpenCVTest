@@ -10,7 +10,7 @@ int main(int argc, const char** argv)
 		return -1;
 	};
 
-	Mat frame1 = imread("face1.jpg");
+	Mat frame1 = imread("face3.jpg");
 	Mat normalized1 = detectIris(frame1);
 	vector<int> eye1 = LBP(normalized1);
 
@@ -68,7 +68,7 @@ Mat findEye(Mat input)
 	Mat gray;
 
 	cvtColor(input, gray, CV_BGR2GRAY);
-	//equalizeHist(input_gray, input_gray);
+	//equalizeHist(gray, gray);
 
 	int minSize = gray.size().height * 0.15;
 
@@ -93,10 +93,6 @@ Mat blurImage(Mat input)
 Mat cannyTransform(Mat input)
 {
 	Mat processed;
-	//double highVal = threshold(input, processed , 0, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
-	//double lowVal = highVal * 0.5;
-	//showCurrentImage(processed);
-
 	Canny(input, processed, 100, 120, 3, false);
 	return processed;
 }
@@ -127,20 +123,19 @@ Mat findAndExtractIris(Mat &input, Mat &unprocessed, Mat &original)
 	Mat processed;
 	/*processed = EdgeContour(input);*/
 
-	GaussianBlur(input, processed, Size(9, 9), 5, 5);
-	double highVal = threshold(processed, processed, 160, 255, CV_THRESH_BINARY);
-	double lowVal = highVal * 0.5;
+	GaussianBlur(input, processed, Size(9, 9), 3, 3);
+	threshold(processed, processed, 70, 255, CV_THRESH_BINARY);
+	showCurrentImage(processed);
 
 	processed = cannyTransform(processed);
 	showCurrentImage(processed);
 
 	vector<Vec3f> circles;
-	HoughCircles(processed, circles, CV_HOUGH_GRADIENT, 1, original.rows / 8, 255, 30, 0, 0);
-	for (size_t i = 0; i < circles.size(); i++)//circles.size()
+	HoughCircles(processed, circles, CV_HOUGH_GRADIENT, 2, original.rows / 8, 255, 30, 0, 0);
+	for (size_t i = 0; i < 1; i++)//circles.size()
 	{
 		Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
-		irisRadius = cvRound(circles[i][2]);
-
+		irisRadius = cvRound(circles[i][2])*5;
 		circle(unprocessed, center, irisRadius, Scalar(0, 0, 255), 2, 8, 0);
 	}
 
@@ -167,7 +162,7 @@ Mat findPupil(Mat input)
 	double lowVal = highVal * 0.5;
 	showCurrentImage(processed);
 
-	Canny(processed, cannyImage, lowVal, highVal, 3, false);
+	cannyImage = cannyTransform(processed);
 
 	//cannyImage = CannyTransform(cannyImage);
 	showCurrentImage(cannyImage);
@@ -299,4 +294,91 @@ void showCurrentImage(Mat input)
 {
 	imshow(window, input);
 	waitKey(0);
+}
+
+class MyPoint 
+{
+public:
+	int x, y;
+	MyPoint(int x, int y) 
+	{
+		this->x = x;
+		this->y = y;
+	}
+};
+
+class Image : public Mat 
+{
+public:
+	int radiusForCheck;
+	vector<MyPoint> outOfThreshold;
+	Image(/*int radiusForCheck*/) 
+	{
+	}
+};
+
+bool houghCircle(Mat cannied, int &radius, vector<int> &xCenter, vector<int> &yCenter)
+{
+	int min_r = radius, max_r = radius*5;
+	vector<Image> radiuses(max_r - min_r);
+	for (int r = min_r; r < max_r; r++) 
+	{
+		Image& image = radiuses.at(r - min_r);
+		image.radiusForCheck = r;
+
+		int** matrix = new int*[cannied.cols];
+		for (int i = 0; i < cannied.cols; ++i)
+			matrix[i] = new int[cannied.rows];
+
+		for (int x = 0; x < cannied.cols; x++) 
+		{
+			for (int y = 0; y < cannied.rows; y++) 
+			{
+				matrix[x][y] = 0;
+			}
+		}
+
+		int pointsThreshold = 30;
+		for (int x = 0; x < cannied.cols; x++) 
+		{
+			for (int y = 0; y < cannied.rows; y++) 
+			{
+				if ((int)cannied.at<uchar>(y, x) == 255)
+				{
+					for (int k = 0; k < 360; k += 2) 
+					{
+						int xCurrent = x + r*cos((double)(k*PI) / 180.00);
+						int yCurrent = y + r*sin((double)(k*PI) / 180.00);
+						if (xCurrent <= 0 || xCurrent >= cannied.cols - 1 || yCurrent <= 0 || yCurrent >= cannied.rows - 1 || matrix[xCurrent][yCurrent] >= pointsThreshold) 
+						{
+							continue;
+						}
+						matrix[xCurrent][yCurrent]++;
+						if (matrix[xCurrent][yCurrent] >= pointsThreshold) 
+						{
+							image.outOfThreshold.push_back(MyPoint(xCurrent, yCurrent));
+						}
+					}
+				}
+			}
+		}
+	}
+	for (int i = 0; i < radiuses.size(); i++) 
+	{
+		Image image = radiuses.at(i);
+		if (image.outOfThreshold.size()>0 && image.radiusForCheck >= min_r) 
+		{
+			radius = image.radiusForCheck;
+			for (int j = 0; j < 1; j++) 
+			{
+				int x = image.outOfThreshold.at(j).x;
+				int y = image.outOfThreshold.at(j).y;
+				xCenter.push_back(x);
+				yCenter.push_back(y);
+			}
+			cout << image.outOfThreshold.size() << "\n";
+			return true;
+		}
+	}
+	return false;
 }

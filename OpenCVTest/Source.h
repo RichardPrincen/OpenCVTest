@@ -28,6 +28,7 @@ Mat normalize(Mat input, int pupilx, int pupily, int pupilRadius, int irisRadius
 vector<int> LBP(Mat iris);
 double hammingDistance(vector<int> savedCode, vector<int> inputCode);
 void showCurrentImage(Mat input);
+bool houghCircle(Mat cannied, int &radius, vector<int> &xCenter, vector<int> &yCenter);
 
 /** Global variables */
 String eyes_cascade_name = "haarcascade_eye.xml";

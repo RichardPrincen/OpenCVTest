@@ -145,7 +145,6 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="HoughCircle.cpp" />
     <ClCompile Include="segment.cpp" />
     <ClCompile Include="Source.cpp" />
   </ItemGroup>
