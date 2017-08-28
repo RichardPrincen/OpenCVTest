@@ -14,11 +14,11 @@ int main(int argc, const char** argv)
 	Mat normalized1 = detectIris(frame1);
 	vector<int> eye1 = LBP(normalized1);
 
-	Mat frame2 = imread("face4.jpg");
+	Mat frame2 = imread("face7.jpg");
 	Mat normalized2 = detectIris(frame2);
 	vector<int> eye2 = LBP(normalized2);
 
-	cout << hammingDistance(eye1, eye2) << endl;
+	cout << chiSquared(eye1, eye2) << endl;
 	int hold;
 	cin >> hold;
 
@@ -38,6 +38,7 @@ void segmentIris(Mat &src, Mat &dst)
 	pupil_r = segment.pupil_r;
 	iris_r = segment.iris_r;
 }
+
 
 Mat detectIris(Mat input)
 {
@@ -192,16 +193,16 @@ Mat findPupil(Mat input)
 Mat normalize(Mat input, int pupilx, int pupily, int pupilRadius, int irisRadius)
 {
 	
-	int theta = 360;
-	int differenceRadius = 80;
+	int yNew = 512;
+	int xNew = 100;
 
-	Mat normalized = Mat(differenceRadius, theta, CV_8U, Scalar(255));
-	for (int i = 0; i < theta; i++)
+	Mat normalized = Mat(xNew, yNew, CV_8U, Scalar(255));
+	for (int i = 0; i < yNew; i++)
 	{
-		double alpha = 2 * PI * i / theta;
-		for (int j = 0; j < differenceRadius; j++)
+		double alpha = 2 * PI * i / yNew;
+		for (int j = 0; j < xNew; j++)
 		{
-			double r = 1.0*j / differenceRadius;
+			double r = 1.0*j / xNew;
 			int x = (int)((1 - r)*(pupilx + pupilRadius*cos(alpha)) + r*(pupilx + irisRadius*cos(alpha)));
 			int y = (int)((1 - r)*(pupily + pupilRadius*sin(alpha)) + r*(pupily + irisRadius*sin(alpha)));
 			if (x < 0)
@@ -215,14 +216,17 @@ Mat normalize(Mat input, int pupilx, int pupily, int pupilRadius, int irisRadius
 			normalized.at<uchar>(j, i) = input.at<uchar>(y, x);
 		}
 	}
-	Rect reducedSelection(0, 5, 360, 60);
+	Rect reducedSelection(0, 5, 360, 75);
 	normalized = normalized(reducedSelection);
 	return normalized;
 }
 
+//Uniform LBP
 vector<int> LBP(Mat input)
 {
-	vector<int> outputVector;
+	vector<int> outputHist(59);
+	fill(outputHist.begin(), outputHist.end(), 0);
+
 	for (size_t i = 1; i < input.rows - 1; i++)
 	{
 		for (size_t j = 1; j < input.cols - 1; j++)
@@ -230,52 +234,114 @@ vector<int> LBP(Mat input)
 			//Currently centered pixel
 			Scalar otherIntensity = input.at<uchar>(i, j);
 			int vectorValue = 0;
+			vector<int> binaryCode;
 			int pixelIntensity = otherIntensity.val[0];
 
 			//Top left
 			otherIntensity = input.at<uchar>(i - 1, j - 1);
 			if (otherIntensity.val[0] < pixelIntensity)
+			{
 				vectorValue += 128;
+				binaryCode.push_back(1);
+			}
+			else
+				binaryCode.push_back(0);
 
 			//Top middle
 			otherIntensity = input.at<uchar>(i, j - 1);
 			if (otherIntensity.val[0] < pixelIntensity)
+			{
 				vectorValue += 64;
+				binaryCode.push_back(1);
+			}
+			else
+				binaryCode.push_back(0);
 
 			//Top right
 			otherIntensity = input.at<uchar>(i + 1, j - 1);
 			if (otherIntensity.val[0] < pixelIntensity)
+			{
 				vectorValue += 32;
+				binaryCode.push_back(1);
+			}
+			else
+				binaryCode.push_back(0);
 
 			//Right
 			otherIntensity = input.at<uchar>(i + 1, j);
 			if (otherIntensity.val[0] < pixelIntensity)
+			{
 				vectorValue += 16;
+				binaryCode.push_back(1);
+			}
+			else
+				binaryCode.push_back(0);
 
 			//Bottom right
 			otherIntensity = input.at<uchar>(i + 1, j + 1);
 			if (otherIntensity.val[0] < pixelIntensity)
+			{
 				vectorValue += 8;
+				binaryCode.push_back(1);
+			}
+			else
+				binaryCode.push_back(0);
 
 			//Botttom middle
 			otherIntensity = input.at<uchar>(i, j + 1);
 			if (otherIntensity.val[0] < pixelIntensity)
+			{
 				vectorValue += 4;
+				binaryCode.push_back(1);
+			}
+			else
+				binaryCode.push_back(0);
 
 			//Bottom left
 			otherIntensity = input.at<uchar>(i - 1, j + 1);
 			if (otherIntensity.val[0] < pixelIntensity)
+			{
 				vectorValue += 2;
+				binaryCode.push_back(1);
+			}
+			else
+				binaryCode.push_back(0);
 
 			//Left
 			otherIntensity = input.at<uchar>(i - 1, j);
 			if (otherIntensity.val[0] < pixelIntensity)
+			{
 				vectorValue += 1;
+				binaryCode.push_back(1);
+			}
+			else
+				binaryCode.push_back(0);
 
-			outputVector.push_back(vectorValue);
+			if (checkUniform(binaryCode))
+			{
+				for (int x = 0; x < 59; x++)
+					if (histogramValues[x] == vectorValue)
+						outputHist[x]++;
+			}
+			else
+				outputHist[58]++;
 		}
 	}
-	return outputVector;
+	return outputHist;
+}
+
+bool checkUniform(vector<int> binaryCode)
+{
+	int transitionCount = 0;
+	for (int i = 1; i < 8; i++)
+	{
+		if (binaryCode[i] ^ binaryCode[i - 1] == 1)
+			transitionCount++;
+
+		if (transitionCount > 2)
+			return false;
+	}
+	return true;
 }
 
 double hammingDistance(vector<int> savedCode, vector<int> inputCode)
@@ -286,15 +352,39 @@ double hammingDistance(vector<int> savedCode, vector<int> inputCode)
 	{
 		currentDistance = 0;
 		unsigned  val = savedCode[i] ^ inputCode[i];
-
 		while (val != 0)
 		{
 			currentDistance++;
 			val &= val - 1;
 		}
-		averageDistance += currentDistance;
+		averageDistance += currentDistance/8;
 	}
 	return 1.0*averageDistance / inputCode.size();
+}
+
+double chiSquared(vector<int> hist1, vector<int> hist2)
+{
+	vector<double> normalizedHist1(59);
+	vector<double> normalizedHist2(59);
+
+	for (int i = 0; i < 58; i++)
+	{
+		normalizedHist1[i] = (double)hist1[i]/hist1[58];
+		normalizedHist2[i] = (double)hist2[i]/hist2[58];
+	}
+
+	normalizedHist1[58] = 1.0;
+	normalizedHist2[58] = 1.0;
+
+	double chiSquaredValue = 0.0;
+	for (int i = 1; i < 59; i++)
+	{
+		if (hist1[i] + hist2[i] != 0)
+		{
+			chiSquaredValue += pow(normalizedHist1[i] - normalizedHist2[i], 2) / (normalizedHist1[i] + normalizedHist2[i]);
+		}
+	}
+	return chiSquaredValue;
 }
 
 void showCurrentImage(Mat input)
@@ -302,6 +392,18 @@ void showCurrentImage(Mat input)
 	imshow(window, input);
 	waitKey(0);
 }
+
+
+
+
+
+
+
+
+
+
+
+
 
 class MyPoint 
 {

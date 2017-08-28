@@ -9,6 +9,7 @@
 #include <cmath>
 #include <list>  
 #include "segment.h"
+#include "gaborfilter.h"
 
 #define PI 3.14159265358979323846
 
@@ -17,6 +18,7 @@ using namespace cv;
 
 /** Function Headers */
 void segmentIris(Mat &src, Mat &dst);
+vector<char> gabor(Mat src);
 Mat detectIris(Mat frame);
 Mat findEye(Mat input);
 Mat blurImage(Mat input);
@@ -25,8 +27,10 @@ Mat edgeContour(Mat input);
 Mat findAndExtractIris(Mat &input, Mat &unprocessed, Mat &original);
 Mat findPupil(Mat input);
 Mat normalize(Mat input, int pupilx, int pupily, int pupilRadius, int irisRadius);
-vector<int> LBP(Mat iris);
+vector<int> LBP(Mat input);
+bool checkUniform(vector<int> binaryCode);
 double hammingDistance(vector<int> savedCode, vector<int> inputCode);
+double chiSquared(vector<int> hist1, vector<int> hist2);
 void showCurrentImage(Mat input);
 bool houghCircle(Mat cannied, int &radius, vector<int> &xCenter, vector<int> &yCenter);
 
@@ -35,3 +39,4 @@ String eyes_cascade_name = "haarcascade_eye.xml";
 CascadeClassifier eyes_cascade2;
 string window = "Output";
 int pupilx, pupily, pupilRadius, irisRadius;
+int histogramValues[58] = {0, 1, 2, 3, 4, 6, 7, 8, 12, 14, 15, 16, 24, 28, 30, 31, 32, 48, 56, 60, 62, 63, 64, 96, 112, 120, 124, 126, 127, 128, 129, 131, 135, 143, 159, 191, 192, 193, 195, 199, 207, 223, 224, 225, 227, 231, 239, 240, 241, 243, 247, 248, 249, 251, 252, 253, 254, 255};
