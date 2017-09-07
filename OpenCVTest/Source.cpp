@@ -10,11 +10,11 @@ int main(int argc, const char** argv)
 		return -1;
 	};
 
-	Mat frame1 = imread("face1.jpg");
+	Mat frame1 = imread("face5.jpg");
 	Mat normalized1 = detectIris(frame1);
 	vector<int> eye1 = LBP(normalized1);
 
-	Mat frame2 = imread("face7.jpg");
+	Mat frame2 = imread("face1.jpg");
 	Mat normalized2 = detectIris(frame2);
 	vector<int> eye2 = LBP(normalized2);
 
@@ -43,7 +43,6 @@ void segmentIris(Mat &src, Mat &dst)
 Mat detectIris(Mat input)
 {
 	Mat currentImage = input;
-
 	//Eye localization
 	currentImage = findEye(currentImage);
 	Mat unprocessed = currentImage;
@@ -123,14 +122,16 @@ Mat findAndExtractIris(Mat &input, Mat &unprocessed, Mat &original)
 {
 	Mat processed;
 	/*processed = EdgeContour(input);*/
-
-	GaussianBlur(input, processed, Size(9, 9), 3, 3);
-	threshold(processed, processed, 70, 255, CV_THRESH_BINARY);
+	processed = fillHoles(input);
 	showCurrentImage(processed);
+
+	GaussianBlur(processed, processed, Size(9, 9), 3, 3);
+	
+	//threshold(processed, processed, 70, 255, CV_THRESH_BINARY);
+	//showCurrentImage(processed);
 
 	processed = cannyTransform(processed);
 	showCurrentImage(processed);
-
 
 	vector<Vec3f> circles;
 	HoughCircles(processed, circles, CV_HOUGH_GRADIENT, 2, original.rows / 8, 255, 30, 0, 0);
@@ -160,7 +161,38 @@ Mat findAndExtractIris(Mat &input, Mat &unprocessed, Mat &original)
 	return iris;
 }
 
-Mat findPupil(Mat input)
+Mat fillHoles(Mat input)
+{
+	/*for (size_t i = 0; i < input.rows; i++)
+	{
+		for (size_t j = 0; j < input.cols; j++)
+		{
+			Scalar intensity = input.at<uchar>(i, j);
+			if (intensity.val[0] > 240.0)
+				input.at<uchar>(i, j) = 40.0;
+		}
+	}
+	return input;*/
+
+	Mat thresholded;
+	threshold(input, thresholded, 70, 255, THRESH_BINARY_INV);
+
+	// Floodfill from point (0, 0)
+	Mat floodfill = thresholded.clone();
+	floodFill(floodfill, cv::Point(0, 0), Scalar(255));
+
+	// Invert floodfilled image
+	Mat im_floodfill_inv;
+	bitwise_not(floodfill, im_floodfill_inv);
+
+	// Combine the two images to get the foreground.
+	Mat im_out = (thresholded | im_floodfill_inv);
+
+	// Display images
+	return im_out;
+}
+
+Mat findPupil(Mat input, Rect eye)
 {
 	Mat cannyImage;
 	GaussianBlur(input, cannyImage, Size(9, 9), 3, 3);
@@ -171,8 +203,6 @@ Mat findPupil(Mat input)
 	showCurrentImage(processed);
 
 	cannyImage = cannyTransform(processed);
-
-	//cannyImage = CannyTransform(cannyImage);
 	showCurrentImage(cannyImage);
 
 	vector<Vec3f> circles;
@@ -188,7 +218,9 @@ Mat findPupil(Mat input)
 
 	showCurrentImage(input);
 	return input;
+
 }
+
 
 Mat normalize(Mat input, int pupilx, int pupily, int pupilRadius, int irisRadius)
 {
@@ -384,7 +416,7 @@ double chiSquared(vector<int> hist1, vector<int> hist2)
 			chiSquaredValue += pow(normalizedHist1[i] - normalizedHist2[i], 2) / (normalizedHist1[i] + normalizedHist2[i]);
 		}
 	}
-	return chiSquaredValue;
+	return chiSquaredValue * 10;
 }
 
 void showCurrentImage(Mat input)
