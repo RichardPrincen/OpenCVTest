@@ -10,11 +10,12 @@ int main(int argc, const char** argv)
 		return -1;
 	};
 
-	Mat frame1 = imread("faceh3.jpg");
+
+	Mat frame1 = imread("faceh4.jpg");
 	Mat normalized1 = detectIris(frame1);
 	vector<int> eye1 = LBP(normalized1);
 
-	Mat frame2 = imread("faceh4.jpg");
+	Mat frame2 = imread("faceh3.jpg");
 	Mat normalized2 = detectIris(frame2);
 	vector<int> eye2 = LBP(normalized2);
 
@@ -142,7 +143,7 @@ Mat findAndExtractIris(Mat &input, Mat &unprocessed, Mat &original)
 		Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
 		
 		pupilRadius = cvRound(circles[i][2]);
-		irisRadius = pupilRadius*3.4;
+		irisRadius = pupilRadius*3;
 		circle(unprocessed, center, pupilRadius, Scalar(0, 0, 0), CV_FILLED);
 		circle(unprocessed, center, irisRadius, Scalar(0, 0, 255), 2, 8, 0);
 	}
@@ -163,33 +164,15 @@ Mat findAndExtractIris(Mat &input, Mat &unprocessed, Mat &original)
 
 Mat fillHoles(Mat input)
 {
-	/*for (size_t i = 0; i < input.rows; i++)
-	{
-		for (size_t j = 0; j < input.cols; j++)
-		{
-			Scalar intensity = input.at<uchar>(i, j);
-			if (intensity.val[0] > 240.0)
-				input.at<uchar>(i, j) = 40.0;
-		}
-	}
-	return input;*/
-
 	Mat thresholded;
 	threshold(input, thresholded, 70, 255, THRESH_BINARY_INV);
 
-	// Floodfill from point (0, 0)
-	Mat floodfill = thresholded.clone();
-	floodFill(floodfill, cv::Point(0, 0), Scalar(255));
+	Mat floodfilled = thresholded.clone();
+	floodFill(floodfilled, Point(0, 0), Scalar(255));
 
-	// Invert floodfilled image
-	Mat im_floodfill_inv;
-	bitwise_not(floodfill, im_floodfill_inv);
+	bitwise_not(floodfilled, floodfilled);
 
-	// Combine the two images to get the foreground.
-	Mat im_out = (thresholded | im_floodfill_inv);
-
-	// Display images
-	return im_out;
+	return (thresholded | floodfilled);
 }
 
 Mat findPupil(Mat input, Rect eye)
@@ -221,10 +204,8 @@ Mat findPupil(Mat input, Rect eye)
 
 }
 
-
 Mat normalize(Mat input, int pupilx, int pupily, int pupilRadius, int irisRadius)
 {
-	
 	int yNew = 512;
 	int xNew = 100;
 
@@ -248,10 +229,11 @@ Mat normalize(Mat input, int pupilx, int pupily, int pupilRadius, int irisRadius
 			normalized.at<uchar>(j, i) = input.at<uchar>(y, x);
 		}
 	}
-	Rect reducedSelection(0, 5, 360, 75);
+	Rect reducedSelection(0, 5, 512, 80);
 	normalized = normalized(reducedSelection);
 	return normalized;
 }
+
 
 //Uniform LBP
 vector<int> LBP(Mat input)
@@ -259,9 +241,9 @@ vector<int> LBP(Mat input)
 	vector<int> outputHist(59);
 	fill(outputHist.begin(), outputHist.end(), 0);
 
-	for (size_t i = 1; i < input.rows - 1; i++)
+	for (int i = 1; i < input.rows-1; i++)
 	{
-		for (size_t j = 1; j < input.cols - 1; j++)
+		for (int j = 1; j < input.cols-1; j++)
 		{
 			//Currently centered pixel
 			Scalar otherIntensity = input.at<uchar>(i, j);
@@ -396,19 +378,20 @@ double hammingDistance(vector<int> savedCode, vector<int> inputCode)
 
 double chiSquared(vector<int> hist1, vector<int> hist2)
 {
+	double chiSquaredValue = 0.0;
+
 	vector<double> normalizedHist1(59);
 	vector<double> normalizedHist2(59);
 
 	for (int i = 0; i < 58; i++)
 	{
-		normalizedHist1[i] = (double)hist1[i]/hist1[58];
-		normalizedHist2[i] = (double)hist2[i]/hist2[58];
+		normalizedHist1[i] = (double)hist1[i] / hist1[58];
+		normalizedHist2[i] = (double)hist2[i] / hist2[58];
 	}
 
 	normalizedHist1[58] = 1.0;
 	normalizedHist2[58] = 1.0;
 
-	double chiSquaredValue = 0.0;
 	for (int i = 1; i < 59; i++)
 	{
 		if (hist1[i] + hist2[i] != 0)
@@ -416,7 +399,7 @@ double chiSquared(vector<int> hist1, vector<int> hist2)
 			chiSquaredValue += pow(normalizedHist1[i] - normalizedHist2[i], 2) / (normalizedHist1[i] + normalizedHist2[i]);
 		}
 	}
-	return chiSquaredValue * 10;
+	return (chiSquaredValue);
 }
 
 void showCurrentImage(Mat input)
