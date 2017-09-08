@@ -10,11 +10,11 @@ int main(int argc, const char** argv)
 		return -1;
 	};
 
-	Mat frame1 = imread("face5.jpg");
+	Mat frame1 = imread("faceh3.jpg");
 	Mat normalized1 = detectIris(frame1);
 	vector<int> eye1 = LBP(normalized1);
 
-	Mat frame2 = imread("face1.jpg");
+	Mat frame2 = imread("faceh4.jpg");
 	Mat normalized2 = detectIris(frame2);
 	vector<int> eye2 = LBP(normalized2);
 
@@ -142,7 +142,7 @@ Mat findAndExtractIris(Mat &input, Mat &unprocessed, Mat &original)
 		Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
 		
 		pupilRadius = cvRound(circles[i][2]);
-		irisRadius = pupilRadius*4;
+		irisRadius = pupilRadius*3.4;
 		circle(unprocessed, center, pupilRadius, Scalar(0, 0, 0), CV_FILLED);
 		circle(unprocessed, center, irisRadius, Scalar(0, 0, 255), 2, 8, 0);
 	}
