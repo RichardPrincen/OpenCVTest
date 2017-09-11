@@ -28,7 +28,7 @@ Mat findAndExtractIris(Mat &input, Mat &unprocessed, Mat &original);
 //Mat findPupil(Mat input);
 Mat fillHoles(Mat input);
 Mat findPupil(Mat input, Rect eye);
-Mat normalize(Mat input, int pupilx, int pupily, int pupilRadius, int irisRadius);
+Mat normalize(Mat input); // , int pupilx, int pupily, int pupilRadius, int irisRadius
 vector<int> LBP(Mat input);
 bool checkUniform(vector<int> binaryCode);
 double hammingDistance(vector<int> savedCode, vector<int> inputCode);

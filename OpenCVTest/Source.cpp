@@ -11,7 +11,7 @@ int main(int argc, const char** argv)
 	};
 
 
-	Mat frame1 = imread("faceh4.jpg");
+	Mat frame1 = imread("faceh5.jpg");
 	Mat normalized1 = detectIris(frame1);
 	vector<int> eye1 = LBP(normalized1);
 
@@ -49,17 +49,10 @@ Mat detectIris(Mat input)
 	Mat unprocessed = currentImage;
 	showCurrentImage(currentImage);
 
-	//Find and extract iris
+	//Locate, extract and normalize iris
 	currentImage = findAndExtractIris(currentImage, unprocessed, input);
 	showCurrentImage(currentImage);
 
-	//Find pupil
-	//currentImage = findPupil(currentImage);
-
-	//Normalize
-	currentImage = normalize(currentImage, pupilx, pupily, pupilRadius, irisRadius);
-
-	showCurrentImage(currentImage);
 	destroyAllWindows();
 	return currentImage;
 }
@@ -131,7 +124,7 @@ Mat findAndExtractIris(Mat &input, Mat &unprocessed, Mat &original)
 	//threshold(processed, processed, 70, 255, CV_THRESH_BINARY);
 	//showCurrentImage(processed);
 
-	processed = cannyTransform(processed);
+	//processed = cannyTransform(processed);
 	showCurrentImage(processed);
 
 	vector<Vec3f> circles;
@@ -141,7 +134,7 @@ Mat findAndExtractIris(Mat &input, Mat &unprocessed, Mat &original)
 		
 
 		Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
-		
+		pupilx = cvRound(circles[i][0]), pupily = cvRound(circles[i][1]);
 		pupilRadius = cvRound(circles[i][2]);
 		irisRadius = pupilRadius*3;
 		circle(unprocessed, center, pupilRadius, Scalar(0, 0, 0), CV_FILLED);
@@ -149,8 +142,10 @@ Mat findAndExtractIris(Mat &input, Mat &unprocessed, Mat &original)
 	}
 
 	showCurrentImage(unprocessed);
+	Mat iris = normalize(unprocessed);
+	return iris;
 
-	Vec3f circ = circles[0];
+	/*Vec3f circ = circles[0];
 	Mat1b mask(unprocessed.size(), uchar(0));
 	circle(mask, Point(circ[0], circ[1]), irisRadius, Scalar(255), CV_FILLED);
 	Rect bbox(circ[0] - irisRadius, circ[1] - irisRadius, 2 * irisRadius, 2 * irisRadius);
@@ -158,8 +153,7 @@ Mat findAndExtractIris(Mat &input, Mat &unprocessed, Mat &original)
 
 	unprocessed.copyTo(iris, mask);
 	iris = iris(bbox);
-	pupilx = iris.size().width/2, pupily = iris.size().height/2;
-	return iris;
+	pupilx = iris.size().width/2, pupily = iris.size().height/2;*/
 }
 
 Mat fillHoles(Mat input)
@@ -204,9 +198,9 @@ Mat findPupil(Mat input, Rect eye)
 
 }
 
-Mat normalize(Mat input, int pupilx, int pupily, int pupilRadius, int irisRadius)
+Mat normalize(Mat input) // , int pupilx, int pupily, int pupilRadius, int irisRadius
 {
-	int yNew = 512;
+	int yNew = 360;
 	int xNew = 100;
 
 	Mat normalized = Mat(xNew, yNew, CV_8U, Scalar(255));
@@ -229,11 +223,10 @@ Mat normalize(Mat input, int pupilx, int pupily, int pupilRadius, int irisRadius
 			normalized.at<uchar>(j, i) = input.at<uchar>(y, x);
 		}
 	}
-	Rect reducedSelection(0, 5, 512, 80);
+	Rect reducedSelection(0, 5, 360, 75);
 	normalized = normalized(reducedSelection);
 	return normalized;
 }
-
 
 //Uniform LBP
 vector<int> LBP(Mat input)
