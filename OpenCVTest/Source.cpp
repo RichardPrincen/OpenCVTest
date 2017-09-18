@@ -11,11 +11,11 @@ int main(int argc, const char** argv)
 	};
 
 
-	Mat frame1 = imread("faceh5.jpg");
+	Mat frame1 = imread("faceh2.jpg");
 	Mat normalized1 = detectIris(frame1);
 	vector<int> eye1 = LBP(normalized1);
 
-	Mat frame2 = imread("faceh3.jpg");
+	Mat frame2 = imread("faceh4.jpg");
 	Mat normalized2 = detectIris(frame2);
 	vector<int> eye2 = LBP(normalized2);
 
@@ -115,7 +115,7 @@ Mat edgeContour(Mat input)
 Mat findAndExtractIris(Mat &input, Mat &unprocessed, Mat &original)
 {
 	Mat processed;
-	/*processed = EdgeContour(input);*/
+
 	processed = fillHoles(input);
 	showCurrentImage(processed);
 
@@ -124,7 +124,6 @@ Mat findAndExtractIris(Mat &input, Mat &unprocessed, Mat &original)
 	//threshold(processed, processed, 70, 255, CV_THRESH_BINARY);
 	//showCurrentImage(processed);
 
-	//processed = cannyTransform(processed);
 	showCurrentImage(processed);
 
 	vector<Vec3f> circles;
@@ -136,7 +135,8 @@ Mat findAndExtractIris(Mat &input, Mat &unprocessed, Mat &original)
 		Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
 		pupilx = cvRound(circles[i][0]), pupily = cvRound(circles[i][1]);
 		pupilRadius = cvRound(circles[i][2]);
-		irisRadius = pupilRadius*3;
+		irisRadius = findIrisRadius(unprocessed, center, pupilRadius);
+
 		circle(unprocessed, center, pupilRadius, Scalar(0, 0, 0), CV_FILLED);
 		circle(unprocessed, center, irisRadius, Scalar(0, 0, 255), 2, 8, 0);
 	}
@@ -144,16 +144,25 @@ Mat findAndExtractIris(Mat &input, Mat &unprocessed, Mat &original)
 	showCurrentImage(unprocessed);
 	Mat iris = normalize(unprocessed);
 	return iris;
+}
 
-	/*Vec3f circ = circles[0];
-	Mat1b mask(unprocessed.size(), uchar(0));
-	circle(mask, Point(circ[0], circ[1]), irisRadius, Scalar(255), CV_FILLED);
-	Rect bbox(circ[0] - irisRadius, circ[1] - irisRadius, 2 * irisRadius, 2 * irisRadius);
-	Mat iris(200, 200, CV_8UC3, Scalar(255, 255, 255));
-
-	unprocessed.copyTo(iris, mask);
-	iris = iris(bbox);
-	pupilx = iris.size().width/2, pupily = iris.size().height/2;*/
+int findIrisRadius(Mat input , Point startPoint, int radius)
+{
+	showCurrentImage(input);
+	int rightIntensity;
+	int leftIntensity;
+	int position = startPoint.y - (radius+20);
+	int newRadius = radius+20;
+	while (true)
+	{
+		rightIntensity = input.at<uchar>(startPoint.x, position);
+		position -= 15;
+		newRadius += 15;
+		leftIntensity = input.at<uchar>(startPoint.x, position);
+		if (leftIntensity - rightIntensity > 70)
+			return newRadius-5;
+	}
+	return 0;
 }
 
 Mat fillHoles(Mat input)

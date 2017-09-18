@@ -25,7 +25,7 @@ Mat blurImage(Mat input);
 Mat cannyTransform(Mat input);
 Mat edgeContour(Mat input);
 Mat findAndExtractIris(Mat &input, Mat &unprocessed, Mat &original);
-//Mat findPupil(Mat input);
+int findIrisRadius(Mat input, Point startPoint, int radius);
 Mat fillHoles(Mat input);
 Mat findPupil(Mat input, Rect eye);
 Mat normalize(Mat input); // , int pupilx, int pupily, int pupilRadius, int irisRadius
