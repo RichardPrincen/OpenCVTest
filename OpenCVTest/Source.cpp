@@ -11,7 +11,7 @@ int main(int argc, const char** argv)
 	};
 
 
-	Mat frame1 = imread("faceh2.jpg");
+	Mat frame1 = imread("faceh5.jpg");
 	Mat normalized1 = detectIris(frame1);
 	vector<int> eye1 = LBP(normalized1);
 
@@ -20,6 +20,12 @@ int main(int argc, const char** argv)
 	vector<int> eye2 = LBP(normalized2);
 
 	cout << chiSquared(eye1, eye2) << endl;
+
+	vector<int> eye1NBP = NBP(normalized1);
+	vector<int> eye2NBP = NBP(normalized2);
+	cout << hammingDistance(eye1NBP, eye2NBP) << endl;
+
+
 	int hold;
 	cin >> hold;
 
@@ -114,7 +120,10 @@ Mat edgeContour(Mat input)
 
 Mat findAndExtractIris(Mat &input, Mat &unprocessed, Mat &original)
 {
+
 	Mat processed;
+	equalizeHist(input, processed);
+	showCurrentImage(processed);
 
 	processed = fillHoles(input);
 	showCurrentImage(processed);
@@ -153,14 +162,14 @@ int findIrisRadius(Mat input , Point startPoint, int radius)
 	showCurrentImage(processed);
 	int rightIntensity;
 	int leftIntensity;
-	int position = startPoint.y - (radius+20);
+	int position = startPoint.x + (radius+20);
 	int newRadius = radius+20;
 	while (true)
 	{
-		rightIntensity = processed.at<uchar>(position, startPoint.y);
-		position -= 10;
+		rightIntensity = processed.at<uchar>(startPoint.y, position);
+		position += 10;
 		newRadius += 10;
-		leftIntensity = processed.at<uchar>(position, startPoint.y);
+		leftIntensity = processed.at<uchar>(startPoint.y, position);
 		if (leftIntensity != rightIntensity)
 			return newRadius-10;
 	}
@@ -234,7 +243,7 @@ Mat normalize(Mat input) // , int pupilx, int pupily, int pupilRadius, int irisR
 			normalized.at<uchar>(j, i) = input.at<uchar>(y, x);
 		}
 	}
-	Rect reducedSelection(0, 5, 360, 75);
+	Rect reducedSelection(0, 5, 360, 60);
 	normalized = normalized(reducedSelection);
 	return normalized;
 }
@@ -362,6 +371,98 @@ bool checkUniform(vector<int> binaryCode)
 	return true;
 }
 
+vector<int> NBP(Mat input)
+{
+	Mat NBPimage = Mat(input.rows, input.cols, CV_8U, Scalar(255));
+	vector<int> NBPcode;
+
+	for (int i = 1; i < input.rows - 1; i++)
+	{
+		for (int j = 1; j < input.cols - 1; j++)
+		{
+			//Currently centered pixel
+			Scalar otherIntensity = input.at<uchar>(i, j);
+			int vectorValue = 0;
+			int pixelIntensity = otherIntensity.val[0];
+
+			//Top left
+			otherIntensity = input.at<uchar>(i - 1, j - 1);
+			if (otherIntensity.val[0] < pixelIntensity)
+				vectorValue += 128;
+
+			//Top middle
+			otherIntensity = input.at<uchar>(i, j - 1);
+			if (otherIntensity.val[0] < pixelIntensity)
+				vectorValue += 64;
+
+			//Top right
+			otherIntensity = input.at<uchar>(i + 1, j - 1);
+			if (otherIntensity.val[0] < pixelIntensity)
+				vectorValue += 32;
+	
+
+			//Right
+			otherIntensity = input.at<uchar>(i + 1, j);
+			if (otherIntensity.val[0] < pixelIntensity)
+				vectorValue += 16;
+
+			//Bottom right
+			otherIntensity = input.at<uchar>(i + 1, j + 1);
+			if (otherIntensity.val[0] < pixelIntensity)
+				vectorValue += 8;
+
+			//Botttom middle
+			otherIntensity = input.at<uchar>(i, j + 1);
+			if (otherIntensity.val[0] < pixelIntensity)
+				vectorValue += 4;
+
+			//Bottom left
+			otherIntensity = input.at<uchar>(i - 1, j + 1);
+			if (otherIntensity.val[0] < pixelIntensity)
+				vectorValue += 2;
+
+			//Left
+			otherIntensity = input.at<uchar>(i - 1, j);
+			if (otherIntensity.val[0] < pixelIntensity)
+				vectorValue += 1;
+
+			NBPimage.at<uchar>(i, j) = vectorValue;
+		}
+	}
+
+	vector<vector<int>> means(0);
+	vector<int> rowmeans(0);
+	for (int j = 0; j < 6; j++)
+	{
+		rowmeans = vector<int>(0);
+		for (int i = 0; i < 6; i++)
+		{
+			int blockmean = 0;
+			for (int x = i * 60; x < i * 60 + 60; x++)
+			{
+				for (int y = j * 10; y < j * 10 + 10; y++)
+				{
+					blockmean += NBPimage.at<uchar>(y, x);
+				}
+			}
+			rowmeans.push_back(blockmean/(60*20));
+		}
+		means.push_back(rowmeans);
+	}
+
+	for (int i = 0; i < 6; i++)
+	{
+		for (int j = 0; j < 5; j++)
+		{
+			if (means.at(i).at(j) > means.at(i).at(j + 1))
+				NBPcode.push_back(1);
+			else
+				NBPcode.push_back(0);
+		}
+	}
+	return NBPcode;
+}
+
 double hammingDistance(vector<int> savedCode, vector<int> inputCode)
 {
 	int currentDistance = 0;
@@ -375,7 +476,7 @@ double hammingDistance(vector<int> savedCode, vector<int> inputCode)
 			currentDistance++;
 			val &= val - 1;
 		}
-		averageDistance += currentDistance/8;
+		averageDistance += currentDistance;
 	}
 	return 1.0*averageDistance / inputCode.size();
 }

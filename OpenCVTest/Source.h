@@ -31,6 +31,7 @@ Mat findPupil(Mat input, Rect eye);
 Mat normalize(Mat input); // , int pupilx, int pupily, int pupilRadius, int irisRadius
 vector<int> LBP(Mat input);
 bool checkUniform(vector<int> binaryCode);
+vector<int> NBP(Mat input);
 double hammingDistance(vector<int> savedCode, vector<int> inputCode);
 double chiSquared(vector<int> hist1, vector<int> hist2);
 void showCurrentImage(Mat input);
