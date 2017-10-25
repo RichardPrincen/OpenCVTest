@@ -11,11 +11,11 @@ int main(int argc, const char** argv)
 	};
 
 
-	Mat frame1 = imread("faceh5.jpg");
+	Mat frame1 = imread("faceh4.jpg");
 	Mat normalized1 = detectIris(frame1);
 	vector<int> eye1 = LBP(normalized1);
 
-	Mat frame2 = imread("faceh4.jpg");
+	Mat frame2 = imread("faceh2.jpg");
 	Mat normalized2 = detectIris(frame2);
 	vector<int> eye2 = LBP(normalized2);
 
@@ -66,7 +66,6 @@ Mat detectIris(Mat input)
 Mat findEye(Mat input)
 {
 	Mat gray;
-
 	cvtColor(input, gray, CV_BGR2GRAY);
 	//equalizeHist(gray, gray);
 
@@ -122,11 +121,11 @@ Mat findAndExtractIris(Mat &input, Mat &unprocessed, Mat &original)
 {
 
 	Mat processed;
-	equalizeHist(input, processed);
-	showCurrentImage(processed);
 
 	processed = fillHoles(input);
 	showCurrentImage(processed);
+	
+	CHT(processed, 20, 50);
 
 	GaussianBlur(processed, processed, Size(9, 9), 3, 3);
 	
@@ -180,6 +179,8 @@ Mat fillHoles(Mat input)
 {
 	Mat thresholded;
 	threshold(input, thresholded, 70, 255, THRESH_BINARY_INV);
+
+	showCurrentImage(thresholded);
 
 	Mat floodfilled = thresholded.clone();
 	floodFill(floodfilled, Point(0, 0), Scalar(255));
@@ -513,101 +514,65 @@ void showCurrentImage(Mat input)
 	waitKey(0);
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-class MyPoint 
+void CHT(Mat input, int minRadius, int maxRadius)
 {
-public:
-	int x, y;
-	MyPoint(int x, int y) 
+	Mat cannyimage = input;
+	Mat cannyimageLarge = cannyimage;
+
+	Size newSize(cannyimage.cols/4, cannyimage.rows/4);
+	resize(cannyimage, cannyimage, newSize);
+	maxRadius = maxRadius / 4;
+	minRadius = minRadius / 4;
+	cannyimage = cannyTransform(cannyimage);
+	cannyimageLarge = cannyTransform(cannyimageLarge);
+	showCurrentImage(cannyimage);
+	int xdim = cannyimage.cols;
+	int ydim = cannyimage.rows;
+	int rdim = maxRadius;
+
+	vector<vector<vector<double>>> accumulator(xdim, vector<vector<double>>(ydim, vector<double>(rdim)));
+
+	for (int x = 0; x < cannyimage.cols; x++)
 	{
-		this->x = x;
-		this->y = y;
-	}
-};
-
-class Image : public Mat 
-{
-public:
-	int radiusForCheck;
-	vector<MyPoint> outOfThreshold;
-	Image(/*int radiusForCheck*/) 
-	{
-	}
-};
-
-bool houghCircle(Mat cannied, int &radius, vector<int> &xCenter, vector<int> &yCenter)
-{
-	int min_r = radius, max_r = radius*5;
-	vector<Image> radiuses(max_r - min_r);
-	for (int r = min_r; r < max_r; r++) 
-	{
-		Image& image = radiuses.at(r - min_r);
-		image.radiusForCheck = r;
-
-		int** matrix = new int*[cannied.cols];
-		for (int i = 0; i < cannied.cols; ++i)
-			matrix[i] = new int[cannied.rows];
-
-		for (int x = 0; x < cannied.cols; x++) 
+		for (int y = 0; y < cannyimage.rows; y++)
 		{
-			for (int y = 0; y < cannied.rows; y++) 
+			if (cannyimage.at<uchar>(x,y) == 255)
 			{
-				matrix[x][y] = 0;
-			}
-		}
-
-		int pointsThreshold = 30;
-		for (int x = 0; x < cannied.cols; x++) 
-		{
-			for (int y = 0; y < cannied.rows; y++) 
-			{
-				if ((int)cannied.at<uchar>(y, x) == 255)
+				for (int r = minRadius; r < maxRadius; r++)
 				{
-					for (int k = 0; k < 360; k += 2) 
+					for (int theta = 0; theta < 360; theta++)
 					{
-						int xCurrent = x + r*cos((double)(k*PI) / 180.00);
-						int yCurrent = y + r*sin((double)(k*PI) / 180.00);
-						if (xCurrent <= 0 || xCurrent >= cannied.cols - 1 || yCurrent <= 0 || yCurrent >= cannied.rows - 1 || matrix[xCurrent][yCurrent] >= pointsThreshold) 
-						{
-							continue;
-						}
-						matrix[xCurrent][yCurrent]++;
-						if (matrix[xCurrent][yCurrent] >= pointsThreshold) 
-						{
-							image.outOfThreshold.push_back(MyPoint(xCurrent, yCurrent));
-						}
+						int a = x - r * cos(theta * PI / 180);
+						int b = y - r * sin(theta * PI / 180);
+						if (a > 0 & b > 0 & a < cannyimage.cols & b < cannyimage.rows)
+							accumulator[a][b][r] = accumulator[a][b][r] + 1;
 					}
 				}
 			}
 		}
 	}
-	for (int i = 0; i < radiuses.size(); i++) 
+
+	int centerx = -1;
+	int centery = -1;
+	int finalRadius = -1;
+	int max = 0;
+	for (int x = 0; x < cannyimage.cols; x++)
 	{
-		Image image = radiuses.at(i);
-		if (image.outOfThreshold.size()>0 && image.radiusForCheck >= min_r) 
+		for (int y = 0; y < cannyimage.rows; y++)
 		{
-			radius = image.radiusForCheck;
-			for (int j = 0; j < 1; j++) 
+			for (int r = minRadius; r < maxRadius; r++)
 			{
-				int x = image.outOfThreshold.at(j).x;
-				int y = image.outOfThreshold.at(j).y;
-				xCenter.push_back(x);
-				yCenter.push_back(y);
+				if (accumulator[x][y][r] > max)
+				{
+					centerx = x;
+					centery = y;
+					finalRadius = r;
+					max = accumulator[x][y][r];
+				}
 			}
-			cout << image.outOfThreshold.size() << "\n";
-			return true;
 		}
 	}
-	return false;
+	showCurrentImage(cannyimageLarge);
+	circle(cannyimageLarge, Point(centerx*4, centery*4), finalRadius*4, Scalar(255, 255, 255),2);
+	showCurrentImage(cannyimageLarge);
 }

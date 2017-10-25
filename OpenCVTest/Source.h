@@ -35,7 +35,7 @@ vector<int> NBP(Mat input);
 double hammingDistance(vector<int> savedCode, vector<int> inputCode);
 double chiSquared(vector<int> hist1, vector<int> hist2);
 void showCurrentImage(Mat input);
-bool houghCircle(Mat cannied, int &radius, vector<int> &xCenter, vector<int> &yCenter);
+void CHT(Mat input, int minRadius, int maxRadius);
 
 /** Global variables */
 String eyes_cascade_name = "haarcascade_eye.xml";
