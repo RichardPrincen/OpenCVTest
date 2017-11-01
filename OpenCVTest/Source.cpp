@@ -2,6 +2,7 @@
 //
 #include "Source.h"
 
+//loads images
 int main(int argc, const char** argv)
 {
 	if (!eyes_cascade2.load(eyes_cascade_name)) 
@@ -32,21 +33,7 @@ int main(int argc, const char** argv)
 	return 0;
 }
 
-void segmentIris(Mat &src, Mat &dst)
-{
-	cout << "segmenting" << endl;
-	Segment segment;
-	segment.findPupilEdge(src, dst);
-	segment.findIrisEdge(dst, dst);
-
-	int pupil_x, pupil_y, pupil_r, iris_r;
-	pupil_x = segment.pupil_x;
-	pupil_y = segment.pupil_y;
-	pupil_r = segment.pupil_r;
-	iris_r = segment.iris_r;
-}
-
-
+//calls the iris recognition fucntions
 Mat detectIris(Mat input)
 {
 	Mat currentImage = input;
@@ -63,6 +50,7 @@ Mat detectIris(Mat input)
 	return currentImage;
 }
 
+//uses haar cascade to find the eye
 Mat findEye(Mat input)
 {
 	Mat gray;
@@ -82,6 +70,7 @@ Mat findEye(Mat input)
 	return gray(eyeRegion);
 }
 
+//gaussian blurs the image using opencv
 Mat blurImage(Mat input)
 {
 	Mat blurredFrame;
@@ -89,6 +78,7 @@ Mat blurImage(Mat input)
 	return blurredFrame;
 }
 
+//canny edge detection using opencv
 Mat cannyTransform(Mat input)
 {
 	Mat processed;
@@ -96,6 +86,7 @@ Mat cannyTransform(Mat input)
 	return processed;
 }
 
+//sobel and scharr edge detection using opencv - unused
 Mat edgeContour(Mat input)
 {
 	int scale = 1;
@@ -117,6 +108,7 @@ Mat edgeContour(Mat input)
 	return processed;
 }
 
+//find iris and pupil using CHT
 Mat findAndExtractIris(Mat &input, Mat &unprocessed, Mat &original)
 {
 
@@ -125,13 +117,16 @@ Mat findAndExtractIris(Mat &input, Mat &unprocessed, Mat &original)
 	processed = fillHoles(input);
 	showCurrentImage(processed);
 	
-	CHT(processed, 20, 50);
+	/*vector<int> circleOut = CHT(processed, 20, 50);
+	Point center(cvRound(circleOut[0]), cvRound(circleOut[1]));
+	pupilx = cvRound(circleOut[0]), pupily = cvRound(circleOut[1]);
+	pupilRadius = cvRound(circleOut[2]);
+	irisRadius = findIrisRadius(unprocessed, center, pupilRadius);
+
+	circle(unprocessed, center, pupilRadius*1.1, Scalar(0, 0, 0), CV_FILLED);
+	circle(unprocessed, center, irisRadius, Scalar(0, 0, 255), 2, 8, 0);*/
 
 	GaussianBlur(processed, processed, Size(9, 9), 3, 3);
-	
-	//threshold(processed, processed, 70, 255, CV_THRESH_BINARY);
-	//showCurrentImage(processed);
-
 	showCurrentImage(processed);
 
 	vector<Vec3f> circles;
@@ -145,7 +140,7 @@ Mat findAndExtractIris(Mat &input, Mat &unprocessed, Mat &original)
 		pupilRadius = cvRound(circles[i][2]);
 		irisRadius = findIrisRadius(unprocessed, center, pupilRadius);
 
-		circle(unprocessed, center, pupilRadius, Scalar(0, 0, 0), CV_FILLED);
+		circle(unprocessed, center, pupilRadius*1.1, Scalar(0, 0, 0), CV_FILLED);
 		circle(unprocessed, center, irisRadius, Scalar(0, 0, 255), 2, 8, 0);
 	}
 
@@ -154,6 +149,7 @@ Mat findAndExtractIris(Mat &input, Mat &unprocessed, Mat &original)
 	return iris;
 }
 
+//finds the iris radius using pupil radius and thresholding
 int findIrisRadius(Mat input , Point startPoint, int radius)
 {
 	Mat processed;
@@ -175,6 +171,7 @@ int findIrisRadius(Mat input , Point startPoint, int radius)
 	return 0;
 }
 
+//fills "holes" created by reflections
 Mat fillHoles(Mat input)
 {
 	Mat thresholded;
@@ -190,6 +187,7 @@ Mat fillHoles(Mat input)
 	return (thresholded | floodfilled);
 }
 
+//finds the pupil - unused
 Mat findPupil(Mat input, Rect eye)
 {
 	Mat cannyImage;
@@ -219,6 +217,7 @@ Mat findPupil(Mat input, Rect eye)
 
 }
 
+//normalizes the circular image to rectangular
 Mat normalize(Mat input) // , int pupilx, int pupily, int pupilRadius, int irisRadius
 {
 	int yNew = 360;
@@ -249,7 +248,7 @@ Mat normalize(Mat input) // , int pupilx, int pupily, int pupilRadius, int irisR
 	return normalized;
 }
 
-//Uniform LBP
+//uniform LBP feature extraction method
 vector<int> LBP(Mat input)
 {
 	vector<int> outputHist(59);
@@ -358,6 +357,7 @@ vector<int> LBP(Mat input)
 	return outputHist;
 }
 
+//checks if a pixel vector is uniform
 bool checkUniform(vector<int> binaryCode)
 {
 	int transitionCount = 0;
@@ -372,6 +372,7 @@ bool checkUniform(vector<int> binaryCode)
 	return true;
 }
 
+//NBP feature extraction method
 vector<int> NBP(Mat input)
 {
 	Mat NBPimage = Mat(input.rows, input.cols, CV_8U, Scalar(255));
@@ -431,6 +432,7 @@ vector<int> NBP(Mat input)
 		}
 	}
 
+	showCurrentImage(NBPimage);
 	vector<vector<int>> means(0);
 	vector<int> rowmeans(0);
 	for (int j = 0; j < 6; j++)
@@ -464,6 +466,7 @@ vector<int> NBP(Mat input)
 	return NBPcode;
 }
 
+//hamming distance to compare two vectors
 double hammingDistance(vector<int> savedCode, vector<int> inputCode)
 {
 	int currentDistance = 0;
@@ -482,6 +485,7 @@ double hammingDistance(vector<int> savedCode, vector<int> inputCode)
 	return 1.0*averageDistance / inputCode.size();
 }
 
+//chi square distance to compare two histograms
 double chiSquared(vector<int> hist1, vector<int> hist2)
 {
 	double chiSquaredValue = 0.0;
@@ -508,14 +512,17 @@ double chiSquared(vector<int> hist1, vector<int> hist2)
 	return (chiSquaredValue);
 }
 
+//shows an image in output window
 void showCurrentImage(Mat input)
 {
 	imshow(window, input);
 	waitKey(0);
 }
 
-void CHT(Mat input, int minRadius, int maxRadius)
+//circular hough transform
+vector<int> CHT(Mat input, int minRadius, int maxRadius)
 {
+	vector<int> outputVector = vector<int>(3);
 	Mat cannyimage = input;
 	Mat cannyimageLarge = cannyimage;
 
@@ -523,8 +530,8 @@ void CHT(Mat input, int minRadius, int maxRadius)
 	resize(cannyimage, cannyimage, newSize);
 	maxRadius = maxRadius / 4;
 	minRadius = minRadius / 4;
-	cannyimage = cannyTransform(cannyimage);
-	cannyimageLarge = cannyTransform(cannyimageLarge);
+	cannyimage = myEdgeDetetor(cannyimage);
+	cannyimageLarge = myEdgeDetetor(cannyimageLarge);
 	showCurrentImage(cannyimage);
 	int xdim = cannyimage.cols;
 	int ydim = cannyimage.rows;
@@ -573,6 +580,49 @@ void CHT(Mat input, int minRadius, int maxRadius)
 		}
 	}
 	showCurrentImage(cannyimageLarge);
+	outputVector[0] = centerx * 4;
+	outputVector[1] = centery * 4;
+	outputVector[2] = finalRadius * 4;
 	circle(cannyimageLarge, Point(centerx*4, centery*4), finalRadius*4, Scalar(255, 255, 255),2);
 	showCurrentImage(cannyimageLarge);
+	return outputVector;
+}
+
+//thresholds the image based on the input value
+Mat myThreshold(Mat input, int threshold)
+{
+	Mat threshImage = Mat(input.rows, input.cols, CV_8U, Scalar(255));
+	Scalar pixelIntensity;
+	for (int x = 0; x < input.cols; x++)
+	{
+		for (int y = 0; y < input.rows; y++)
+		{
+			pixelIntensity = input.at<uchar>(x, y);
+			if (pixelIntensity.val[0] > threshold)
+				threshImage.at<uchar>(x, y) = 0;
+		}
+	}
+	return threshImage;
+}
+
+//vertical edge detection
+Mat myEdgeDetetor(Mat thresholdInput)
+{
+	Mat edgeImage = Mat(thresholdInput.rows, thresholdInput.cols, CV_8U, Scalar(0));
+	Scalar pixelIntensity;
+	Scalar OtherIntensity;
+	for (int x = 1; x < thresholdInput.cols-1; x++)
+	{
+		for (int y = 1; y < thresholdInput.rows-1; y++)
+		{
+			pixelIntensity = thresholdInput.at<uchar>(x, y);
+			OtherIntensity = thresholdInput.at<uchar>(x+1, y);
+			if (pixelIntensity != OtherIntensity)
+				edgeImage.at<uchar>(x+1, y) = 255;
+			OtherIntensity = thresholdInput.at<uchar>(x-1, y);
+			if (pixelIntensity != OtherIntensity)
+				edgeImage.at<uchar>(x-1, y) = 255;
+		}
+	}
+	return edgeImage;
 }

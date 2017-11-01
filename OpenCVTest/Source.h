@@ -35,7 +35,9 @@ vector<int> NBP(Mat input);
 double hammingDistance(vector<int> savedCode, vector<int> inputCode);
 double chiSquared(vector<int> hist1, vector<int> hist2);
 void showCurrentImage(Mat input);
-void CHT(Mat input, int minRadius, int maxRadius);
+vector<int> CHT(Mat input, int minRadius, int maxRadius);
+Mat myThreshold(Mat input, int threshold);
+Mat myEdgeDetetor(Mat thresholdInput);
 
 /** Global variables */
 String eyes_cascade_name = "haarcascade_eye.xml";
